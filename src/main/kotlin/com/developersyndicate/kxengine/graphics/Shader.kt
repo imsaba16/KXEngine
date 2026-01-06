@@ -46,6 +46,12 @@ class Shader(
         MemoryUtil.memFree(buffer)
     }
 
+    fun setVec4(name: String, color: Color) {
+        val location = glGetUniformLocation(programId, name)
+        glUniform4f(location, color.r, color.g, color.b, color.a)
+    }
+
+
     fun bind() {
         glUseProgram(programId)
     }
