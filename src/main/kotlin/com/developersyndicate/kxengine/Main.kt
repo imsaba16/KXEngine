@@ -1,5 +1,6 @@
 package com.developersyndicate.kxengine
 
+import com.developersyndicate.kxengine.assets.Assets
 import com.developersyndicate.kxengine.graphics.*
 import com.developersyndicate.kxengine.graphics.animation.Animator
 import com.developersyndicate.kxengine.graphics.animation.SpriteAnimation
@@ -32,12 +33,15 @@ fun main() {
     camera.deadZoneWidth = 0.8f
     camera.deadZoneHeight = 0.5f
 
-    val atlasTexture = Texture("assets/atlas.png")
-    val atlas = TextureAtlas(
-        texture = atlasTexture,
-        atlasWidth = 192f,
-        atlasHeight = 128f
+    val atlasAsset = Assets.atlas(
+        path = "assets/atlas.png",
+        width = 192f,
+        height = 128f,
+        columns = 12,
+        rows = 8
     )
+    val atlas = atlasAsset.atlas
+    val atlasTexture = atlasAsset.textureAsset.texture
     atlas.defineGrid(
         prefix = "char",
         columns = 12,
@@ -62,8 +66,7 @@ fun main() {
         frames = listOf(
             atlas.region("char_2_0"),
             atlas.region("char_2_1"),
-            atlas.region("char_2_2"),
-            atlas.region("char_2_3")
+            atlas.region("char_2_2")
         ),
         frameDuration = 0.15f,
         loop = true
@@ -150,7 +153,7 @@ fun main() {
     }
 
     quad.destroy()
-    atlasTexture.destroy()
+    Assets.disposeAll()
     renderer.destroy(mesh)
     window.destroy()
 }
