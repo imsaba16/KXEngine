@@ -1,6 +1,8 @@
 package com.developersyndicate.kxengine
 
 import com.developersyndicate.kxengine.graphics.*
+import com.developersyndicate.kxengine.graphics.animation.Animator
+import com.developersyndicate.kxengine.graphics.animation.SpriteAnimation
 import com.developersyndicate.kxengine.graphics.atlas.TextureAtlas
 import com.developersyndicate.kxengine.input.Input
 import com.developersyndicate.kxengine.math.Vec3
@@ -23,6 +25,7 @@ fun main() {
     val camera = Camera(2f, 2f)
     val quad = QuadMesh()
     val sprites = mutableListOf<Renderable>()
+    val animator = Animator()
 
     val scene = Scene()
     camera.followSpeed = 8f
@@ -55,6 +58,25 @@ fun main() {
         transform = Transform(),
         material = playerMaterial
     )
+    val walkAnimation = SpriteAnimation(
+        frames = listOf(
+            atlas.region("char_2_0"),
+            atlas.region("char_2_1"),
+            atlas.region("char_2_2"),
+            atlas.region("char_2_3")
+        ),
+        frameDuration = 0.15f,
+        loop = true
+    )
+
+    val idleAnimation = SpriteAnimation(
+        frames = listOf(
+            atlas.region("char_2_0")
+        ),
+        frameDuration = 1f,
+        loop = true
+    )
+    animator.play(idleAnimation)
 
     val enemy = Renderable(
         mesh = quad,
@@ -100,11 +122,28 @@ fun main() {
                 duration = 0.35f
             )
         }
+
+        val moving =
+            Input.isKeyDown(GLFW_KEY_A) ||
+                    Input.isKeyDown(GLFW_KEY_D) ||
+                    Input.isKeyDown(GLFW_KEY_W) ||
+                    Input.isKeyDown(GLFW_KEY_S)
+
+        if (moving) {
+            animator.play(walkAnimation)
+        } else {
+            animator.play(idleAnimation)
+        }
+
+        animator.update(delta)
+        playerMaterial.region = animator.currentFrame()
         camera.update(delta)
         glClearColor(0.05f, 0.05f, 0.1f, 1f)
         glClear(GL_COLOR_BUFFER_BIT)
-//        renderer.render(scene = Scene(), camera = camera, debug = false)
-        renderer.renderBatched(sprites, camera)
+        renderer.renderBatched(
+            sprites = sprites,
+            camera = camera
+        )
         renderer.render(scene, camera, debug = true)
         Input.endFrame()
         window.swapBuffers()

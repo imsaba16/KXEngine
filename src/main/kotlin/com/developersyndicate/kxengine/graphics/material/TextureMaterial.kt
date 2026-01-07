@@ -6,7 +6,7 @@ import com.developersyndicate.kxengine.graphics.atlas.AtlasRegion
 
 class TextureMaterial(
     val texture: Texture,
-    val region: AtlasRegion
+    var region: AtlasRegion
 ) : Material {
 
     override fun bind(shader: Shader) {
