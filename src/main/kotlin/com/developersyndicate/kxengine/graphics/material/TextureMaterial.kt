@@ -4,7 +4,7 @@ import com.developersyndicate.kxengine.graphics.Shader
 import com.developersyndicate.kxengine.graphics.Texture
 
 class TextureMaterial(
-    private val texture: Texture
+    val texture: Texture
 ) : Material {
 
     override fun bind(shader: Shader) {

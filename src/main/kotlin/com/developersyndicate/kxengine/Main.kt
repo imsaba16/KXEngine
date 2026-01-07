@@ -7,6 +7,9 @@ import com.developersyndicate.kxengine.scene.Scene
 import com.developersyndicate.kxengine.graphics.material.ColorMaterial
 import com.developersyndicate.kxengine.graphics.material.TextureMaterial
 import org.lwjgl.glfw.GLFW.*
+import org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT
+import org.lwjgl.opengl.GL11.glClear
+import org.lwjgl.opengl.GL11.glClearColor
 
 
 fun main() {
@@ -18,6 +21,7 @@ fun main() {
     val mesh = TriangleMesh()
     val camera = Camera(2f, 2f)
     val quad = QuadMesh()
+    val sprites = mutableListOf<Renderable>()
 
     val scene = Scene()
     camera.followSpeed = 8f
@@ -39,8 +43,7 @@ fun main() {
         },
         material = ColorMaterial(Color.RED)
     )
-
-    scene.add(player)
+    sprites.add(player)
     camera.target = player.transform
     camera.followSpeed = 4f
     scene.add(other)
@@ -78,7 +81,11 @@ fun main() {
             )
         }
         camera.update(delta)
-        renderer.render(scene, camera, true)
+        glClearColor(0.05f, 0.05f, 0.1f, 1f)
+        glClear(GL_COLOR_BUFFER_BIT)
+//        renderer.render(scene = Scene(), camera = camera, debug = false)
+        renderer.renderBatched(sprites, camera)
+        renderer.render(scene, camera, debug = true)
         Input.endFrame()
         window.swapBuffers()
     }

@@ -1,76 +1,84 @@
 package com.developersyndicate.kxengine
 
+import com.developersyndicate.kxengine.debug.DebugGrid
+import com.developersyndicate.kxengine.debug.DebugRect
 import com.developersyndicate.kxengine.graphics.*
+import com.developersyndicate.kxengine.graphics.batch.SpriteBatch
+import com.developersyndicate.kxengine.graphics.material.TextureMaterial
+import com.developersyndicate.kxengine.math.Mat4
 import com.developersyndicate.kxengine.scene.Scene
-import org.lwjgl.opengl.GL11.*
-import com.developersyndicate.kxengine.debug.*
-import com.developersyndicate.kxengine.graphics.*
-import com.developersyndicate.kxengine.math.*
-
 
 class Renderer {
+
     private val debugGrid = DebugGrid()
     private var deadZoneRect: DebugRect? = null
+    private val spriteBatch = SpriteBatch()
+
     private val shader = Shader(
         vertexSource = """
-        #version 330 core
-        layout (location = 0) in vec2 aPos;
-        layout (location = 1) in vec2 aUV;
+            #version 330 core
+            layout (location = 0) in vec2 aPos;
+            layout (location = 1) in vec2 aUV;
+            layout (location = 2) in vec4 aColor;
 
-        uniform mat4 uMVP;
-        out vec2 vUV;
+            uniform mat4 uVP;   // View * Projection
 
-        void main() {
-            vUV = aUV;
-            gl_Position = uMVP * vec4(aPos, 0.0, 1.0);
-        }
-    """.trimIndent(),
+            out vec2 vUV;
+            out vec4 vColor;
+
+            void main() {
+                vUV = aUV;
+                vColor = aColor;
+                gl_Position = uVP * vec4(aPos, 0.0, 1.0);
+            }
+        """.trimIndent(),
 
         fragmentSource = """
-        #version 330 core
-        in vec2 vUV;
-        uniform sampler2D uTexture;
-        out vec4 FragColor;
+            #version 330 core
+            in vec2 vUV;
+            in vec4 vColor;
 
-        void main() {
-            FragColor = texture(uTexture, vUV);
-        }
-    """.trimIndent()
+            uniform sampler2D uTexture;
+
+            out vec4 FragColor;
+
+            void main() {
+                FragColor = texture(uTexture, vUV) * vColor;
+            }
+        """.trimIndent()
     )
 
-
-
-    fun render(scene: Scene, camera: Camera, debug: Boolean = true) {
-        glClearColor(0.05f, 0.05f, 0.1f, 1f)
-        glClear(GL_COLOR_BUFFER_BIT)
-
+    /**
+     * Non-batched rendering path (debug, color materials, etc.)
+     */
+    fun render(scene: Scene, camera: Camera, debug: Boolean) {
         shader.bind()
 
+        // Bind VP once
+        shader.setMat4("uVP", camera.matrix().toFloatArray())
+
         if (debug) {
-            shader.setMat4("uMVP", camera.matrix().toFloatArray())
+            // Grid
             shader.setVec4("uColor", Color(0.3f, 0.3f, 0.3f, 1f))
             debugGrid.draw()
+
+            // Dead-zone rectangle
             if (deadZoneRect == null) {
                 deadZoneRect = DebugRect(
                     camera.deadZoneWidth,
                     camera.deadZoneHeight
                 )
             }
-            val dzTransform =
-                Mat4.translation(camera.position)
 
-            val dzMVP =
-                camera.matrix() * dzTransform
-
-            shader.setMat4("uMVP", dzMVP.toFloatArray())
+            val dzModel = Mat4.translation(camera.position)
+            shader.setMat4("uVP", camera.matrix().toFloatArray())
             shader.setVec4("uColor", Color(1f, 1f, 0f, 1f))
             deadZoneRect!!.draw()
         }
 
+        // Render non-batched objects (color, debug, etc.)
         for (obj in scene.all()) {
-            val mvp = camera.matrix() * obj.transform.matrix()
-            shader.setMat4("uMVP", mvp.toFloatArray())
-
+            shader.setMat4("uVP", camera.matrix().toFloatArray())
             obj.material.bind(shader)
 
             obj.mesh.bind()
@@ -81,9 +89,43 @@ class Renderer {
         shader.unbind()
     }
 
+    /**
+     * Batched rendering path (TEXTURE ONLY)
+     */
+    fun renderBatched(
+        sprites: List<Renderable>,
+        camera: Camera
+    ) {
+        if (sprites.isEmpty()) return
+
+        // Enforce batching rule
+        require(sprites.all { it.material is TextureMaterial }) {
+            "SpriteBatch supports only TextureMaterial"
+        }
+
+        shader.bind()
+
+        // Bind VP ONCE for the whole batch
+        shader.setMat4("uVP", camera.matrix().toFloatArray())
+
+        val texture = (sprites.first().material as TextureMaterial).texture
+        spriteBatch.begin(texture)
+
+        for (obj in sprites) {
+            spriteBatch.draw(
+                model = obj.transform.matrix(),
+                color = floatArrayOf(1f, 1f, 1f, 1f)
+            )
+        }
+
+        spriteBatch.end()
+        shader.unbind()
+    }
+
     fun destroy(mesh: TriangleMesh) {
         deadZoneRect?.destroy()
         debugGrid.destroy()
+        spriteBatch.destroy()
         mesh.destroy()
         shader.destroy()
     }
