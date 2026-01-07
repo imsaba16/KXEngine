@@ -1,6 +1,7 @@
 package com.developersyndicate.kxengine.graphics.batch
 
 import com.developersyndicate.kxengine.graphics.Texture
+import com.developersyndicate.kxengine.graphics.atlas.AtlasRegion
 import com.developersyndicate.kxengine.math.Mat4
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.system.MemoryUtil
@@ -59,10 +60,9 @@ class SpriteBatch(
 
     fun draw(
         model: Mat4,
+        region: AtlasRegion,
         color: FloatArray
     ) {
-        if (spriteCount >= maxSprites) return
-
         val positions = arrayOf(
             -0.5f to  0.5f,
             -0.5f to -0.5f,
@@ -73,19 +73,20 @@ class SpriteBatch(
         )
 
         val uvs = arrayOf(
-            0f to 1f,
-            0f to 0f,
-            1f to 0f,
-            0f to 1f,
-            1f to 0f,
-            1f to 1f
+            region.u0 to region.v1,
+            region.u0 to region.v0,
+            region.u1 to region.v0,
+            region.u0 to region.v1,
+            region.u1 to region.v0,
+            region.u1 to region.v1
         )
+
+        val m = model.toFloatArray()
 
         for (i in 0 until 6) {
             val (x, y) = positions[i]
             val (u, v) = uvs[i]
 
-            val m = model.toFloatArray()
             val px = m[0] * x + m[4] * y + m[12]
             val py = m[1] * x + m[5] * y + m[13]
 
@@ -101,6 +102,7 @@ class SpriteBatch(
 
         spriteCount++
     }
+
 
     fun end() {
         buffer.flip()

@@ -2,9 +2,11 @@ package com.developersyndicate.kxengine.graphics.material
 
 import com.developersyndicate.kxengine.graphics.Shader
 import com.developersyndicate.kxengine.graphics.Texture
+import com.developersyndicate.kxengine.graphics.atlas.AtlasRegion
 
 class TextureMaterial(
-    val texture: Texture
+    val texture: Texture,
+    val region: AtlasRegion
 ) : Material {
 
     override fun bind(shader: Shader) {

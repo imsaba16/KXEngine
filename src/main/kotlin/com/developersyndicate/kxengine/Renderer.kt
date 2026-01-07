@@ -48,21 +48,15 @@ class Renderer {
         """.trimIndent()
     )
 
-    /**
-     * Non-batched rendering path (debug, color materials, etc.)
-     */
     fun render(scene: Scene, camera: Camera, debug: Boolean) {
         shader.bind()
 
-        // Bind VP once
         shader.setMat4("uVP", camera.matrix().toFloatArray())
 
         if (debug) {
-            // Grid
             shader.setVec4("uColor", Color(0.3f, 0.3f, 0.3f, 1f))
             debugGrid.draw()
 
-            // Dead-zone rectangle
             if (deadZoneRect == null) {
                 deadZoneRect = DebugRect(
                     camera.deadZoneWidth,
@@ -76,7 +70,6 @@ class Renderer {
             deadZoneRect!!.draw()
         }
 
-        // Render non-batched objects (color, debug, etc.)
         for (obj in scene.all()) {
             shader.setMat4("uVP", camera.matrix().toFloatArray())
             obj.material.bind(shader)
@@ -89,31 +82,28 @@ class Renderer {
         shader.unbind()
     }
 
-    /**
-     * Batched rendering path (TEXTURE ONLY)
-     */
     fun renderBatched(
         sprites: List<Renderable>,
         camera: Camera
     ) {
         if (sprites.isEmpty()) return
 
-        // Enforce batching rule
         require(sprites.all { it.material is TextureMaterial }) {
             "SpriteBatch supports only TextureMaterial"
         }
 
         shader.bind()
 
-        // Bind VP ONCE for the whole batch
         shader.setMat4("uVP", camera.matrix().toFloatArray())
 
         val texture = (sprites.first().material as TextureMaterial).texture
         spriteBatch.begin(texture)
 
         for (obj in sprites) {
+            val material = obj.material as TextureMaterial
             spriteBatch.draw(
                 model = obj.transform.matrix(),
+                region = material.region,
                 color = floatArrayOf(1f, 1f, 1f, 1f)
             )
         }

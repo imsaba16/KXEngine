@@ -1,6 +1,7 @@
 package com.developersyndicate.kxengine
 
 import com.developersyndicate.kxengine.graphics.*
+import com.developersyndicate.kxengine.graphics.atlas.TextureAtlas
 import com.developersyndicate.kxengine.input.Input
 import com.developersyndicate.kxengine.math.Vec3
 import com.developersyndicate.kxengine.scene.Scene
@@ -28,25 +29,44 @@ fun main() {
     camera.deadZoneWidth = 0.8f
     camera.deadZoneHeight = 0.5f
 
-    val texture = Texture("assets/monster.png")
+    val atlasTexture = Texture("assets/atlas.png")
+    val atlas = TextureAtlas(
+        texture = atlasTexture,
+        atlasWidth = 192f,
+        atlasHeight = 128f
+    )
+    atlas.defineGrid(
+        prefix = "char",
+        columns = 12,
+        rows = 8
+    )
 
+    val playerMaterial = TextureMaterial(
+        texture = atlasTexture,
+        region = atlas.region("char_2_5")
+    )
+
+    val enemyMaterial = TextureMaterial(
+        texture = atlasTexture,
+        region = atlas.region("char_5_6")
+    )
     val player = Renderable(
         mesh = quad,
         transform = Transform(),
-        material = TextureMaterial(texture)
+        material = playerMaterial
     )
 
-    val other = Renderable(
+    val enemy = Renderable(
         mesh = quad,
         transform = Transform().apply {
-            position = Vec3(0.6f, 0f, 0f)
+            position = Vec3(1f, 0f, 0f)
         },
-        material = ColorMaterial(Color.RED)
+        material = enemyMaterial
     )
     sprites.add(player)
+    sprites.add(enemy)
     camera.target = player.transform
     camera.followSpeed = 4f
-    scene.add(other)
 
     val speed = 1.0f
 
@@ -91,7 +111,7 @@ fun main() {
     }
 
     quad.destroy()
-    texture.destroy()
+    atlasTexture.destroy()
     renderer.destroy(mesh)
     window.destroy()
 }
