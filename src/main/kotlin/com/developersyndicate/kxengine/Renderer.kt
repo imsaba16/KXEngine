@@ -82,33 +82,32 @@ class Renderer {
         shader.unbind()
     }
 
-    fun renderBatched(
+    fun renderSprites(
         sprites: List<Renderable>,
         camera: Camera
     ) {
         if (sprites.isEmpty()) return
 
-        require(sprites.all { it.material is TextureMaterial }) {
-            "SpriteBatch supports only TextureMaterial"
-        }
-
         shader.bind()
-
         shader.setMat4("uVP", camera.matrix().toFloatArray())
 
-        val texture = (sprites.first().material as TextureMaterial).texture
-        spriteBatch.begin(texture)
-
-        for (obj in sprites) {
-            val material = obj.material as TextureMaterial
-            spriteBatch.draw(
-                model = obj.transform.matrix(),
-                region = material.region,
-                color = floatArrayOf(1f, 1f, 1f, 1f)
-            )
+        val batches = sprites.groupBy {
+            val material = it.material as TextureMaterial
+            material.texture
         }
 
-        spriteBatch.end()
+        for ((texture, batchSprites) in batches) {
+            spriteBatch.begin(texture)
+            for (obj in batchSprites) {
+                val material = obj.material as TextureMaterial
+                spriteBatch.draw(
+                    model = obj.transform.matrix(),
+                    region = material.region,
+                    color = floatArrayOf(1f, 1f, 1f, 1f)
+                )
+            }
+            spriteBatch.end()
+        }
         shader.unbind()
     }
 

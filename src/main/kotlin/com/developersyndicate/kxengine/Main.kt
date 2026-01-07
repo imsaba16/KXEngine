@@ -143,7 +143,7 @@ fun main() {
         camera.update(delta)
         glClearColor(0.05f, 0.05f, 0.1f, 1f)
         glClear(GL_COLOR_BUFFER_BIT)
-        renderer.renderBatched(
+        renderer.renderSprites(
             sprites = sprites,
             camera = camera
         )
