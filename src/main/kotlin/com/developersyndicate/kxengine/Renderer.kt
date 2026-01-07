@@ -15,23 +15,29 @@ class Renderer {
         vertexSource = """
         #version 330 core
         layout (location = 0) in vec2 aPos;
+        layout (location = 1) in vec2 aUV;
+
         uniform mat4 uMVP;
+        out vec2 vUV;
 
         void main() {
+            vUV = aUV;
             gl_Position = uMVP * vec4(aPos, 0.0, 1.0);
         }
     """.trimIndent(),
 
         fragmentSource = """
         #version 330 core
-        uniform vec4 uColor;
+        in vec2 vUV;
+        uniform sampler2D uTexture;
         out vec4 FragColor;
 
         void main() {
-            FragColor = uColor;
+            FragColor = texture(uTexture, vUV);
         }
     """.trimIndent()
     )
+
 
 
     fun render(scene: Scene, camera: Camera, debug: Boolean = true) {
@@ -64,7 +70,8 @@ class Renderer {
         for (obj in scene.all()) {
             val mvp = camera.matrix() * obj.transform.matrix()
             shader.setMat4("uMVP", mvp.toFloatArray())
-            shader.setVec4("uColor", obj.color)
+
+            obj.material.bind(shader)
 
             obj.mesh.bind()
             obj.mesh.draw()

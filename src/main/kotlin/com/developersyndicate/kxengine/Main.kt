@@ -4,7 +4,10 @@ import com.developersyndicate.kxengine.graphics.*
 import com.developersyndicate.kxengine.input.Input
 import com.developersyndicate.kxengine.math.Vec3
 import com.developersyndicate.kxengine.scene.Scene
+import com.developersyndicate.kxengine.graphics.material.ColorMaterial
+import com.developersyndicate.kxengine.graphics.material.TextureMaterial
 import org.lwjgl.glfw.GLFW.*
+
 
 fun main() {
     val window = GlfwWindow(800, 600, "KXEngine")
@@ -14,27 +17,28 @@ fun main() {
 
     val mesh = TriangleMesh()
     val camera = Camera(2f, 2f)
+    val quad = QuadMesh()
 
     val scene = Scene()
     camera.followSpeed = 8f
     camera.deadZoneWidth = 0.8f
     camera.deadZoneHeight = 0.5f
 
+    val texture = Texture("assets/monster.png")
 
     val player = Renderable(
-        mesh = mesh,
+        mesh = quad,
         transform = Transform(),
-        color = Color.GREEN
+        material = TextureMaterial(texture)
     )
 
     val other = Renderable(
-        mesh = mesh,
+        mesh = quad,
         transform = Transform().apply {
             position = Vec3(0.6f, 0f, 0f)
         },
-        color = Color.RED
+        material = ColorMaterial(Color.RED)
     )
-
 
     scene.add(player)
     camera.target = player.transform
@@ -69,7 +73,7 @@ fun main() {
         if (Input.isKeyPressed(GLFW_KEY_SPACE)) {
             println("Shake Triggered")
             camera.shake(
-                strength = 0.50f,
+                strength = 0.10f,
                 duration = 0.35f
             )
         }
@@ -79,6 +83,8 @@ fun main() {
         window.swapBuffers()
     }
 
+    quad.destroy()
+    texture.destroy()
     renderer.destroy(mesh)
     window.destroy()
 }

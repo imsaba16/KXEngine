@@ -51,6 +51,10 @@ class Shader(
         glUniform4f(location, color.r, color.g, color.b, color.a)
     }
 
+    fun setInt(name: String, value: Int) {
+        val location = glGetUniformLocation(programId, name)
+        glUniform1i(location, value)
+    }
 
     fun bind() {
         glUseProgram(programId)

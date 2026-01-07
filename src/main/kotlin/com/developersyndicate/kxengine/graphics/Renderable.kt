@@ -1,7 +1,9 @@
 package com.developersyndicate.kxengine.graphics
 
+import com.developersyndicate.kxengine.graphics.material.Material
+
 class Renderable(
-    val mesh: TriangleMesh,
+    val mesh: QuadMesh,
     val transform: Transform,
-    var color: Color = Color.WHITE
+    val material: Material
 )
