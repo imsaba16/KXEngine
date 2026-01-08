@@ -4,6 +4,8 @@ import com.developersyndicate.kxengine.assets.Assets
 import com.developersyndicate.kxengine.combat.Damage
 import com.developersyndicate.kxengine.combat.DamageSystem
 import com.developersyndicate.kxengine.combat.Health
+import com.developersyndicate.kxengine.gameplay.Checkpoint
+import com.developersyndicate.kxengine.gameplay.CheckpointSystem
 import com.developersyndicate.kxengine.graphics.*
 import com.developersyndicate.kxengine.graphics.animation.Animator
 import com.developersyndicate.kxengine.graphics.animation.SpriteAnimation
@@ -38,6 +40,7 @@ fun main() {
     val jumpForce = 5.5f
     val playerHealth = Health(max = 5)
     val damageSystem = DamageSystem()
+    val checkpointSystem = CheckpointSystem()
 
     camera.followSpeed = 4f
     camera.deadZoneWidth = 0.8f
@@ -107,6 +110,15 @@ fun main() {
         },
         material = enemyMaterial
     )
+    val checkpoint = Renderable(
+        mesh = quad,
+        transform = Transform().apply {
+            position = Vec3(3f, -1f, 0f)
+            scale = Vec3(0.4f, 0.4f, 1f)
+        },
+        material = enemyMaterial
+    )
+
     val pickup = Renderable(
         mesh = quad,
         transform = Transform().apply {
@@ -135,6 +147,8 @@ fun main() {
     sprites.add(pickup)
     sprites.add(enemy)
     sprites.add(ground)
+    sprites.add(checkpoint)
+
 
     camera.target = player.transform
 
@@ -150,7 +164,18 @@ fun main() {
             println("Left pickup area")
         }
     )
-    val triggers = listOf(pickupTrigger, damageTrigger)
+    val checkpointTrigger = Trigger(
+        collider = Collider(
+            transform = checkpoint.transform,
+            halfSize = Vec2(0.2f, 0.2f)
+        ),
+        onEnter = {
+            checkpointSystem.setCheckpoint(
+                Checkpoint(checkpoint.transform.position)
+            )
+        }
+    )
+    val triggers = listOf(pickupTrigger, damageTrigger, checkpointTrigger)
     // === COLLIDERS ===
     val playerCollider = Collider(
         transform = player.transform,
@@ -257,8 +282,11 @@ fun main() {
             renderer.renderColliders(debugColliders, camera)
         }
         if (!playerHealth.isAlive) {
-            println("Player died!")
-            loop.stop()
+            checkpointSystem.respawn(
+                transform = player.transform,
+                body = playerBody,
+                health = playerHealth
+            )
         }
 
         Input.endFrame()
