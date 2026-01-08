@@ -10,6 +10,8 @@ import com.developersyndicate.kxengine.graphics.material.TextureMaterial
 import com.developersyndicate.kxengine.physics.Body
 import com.developersyndicate.kxengine.physics.Collider
 import com.developersyndicate.kxengine.physics.Physics
+import com.developersyndicate.kxengine.physics.Trigger
+import com.developersyndicate.kxengine.physics.TriggerSystem
 import com.developersyndicate.kxengine.scene.Scene
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL11.*
@@ -26,6 +28,7 @@ fun main() {
     val animator = Animator()
     val physics = Physics()
     val playerBody = Body()
+    val triggerSystem = TriggerSystem()
     var showColliders = true
     val gravity = -9.8f
     val moveSpeed = 5f
@@ -80,7 +83,7 @@ fun main() {
     // === ENTITIES ===
     val player = Renderable(
         mesh = quad,
-        transform = Transform(),
+        transform = Transform().apply { scale = Vec3(0.5f, 0.5f, 0.5f) },
         material = playerMaterial
     )
 
@@ -95,7 +98,15 @@ fun main() {
         mesh = quad,
         transform = Transform().apply {
             position = Vec3(0f, -1.5f, 0f)
-            scale = Vec3(5f, 0.5f, 1f)
+            scale = Vec3(15f, 0.5f, 1f)
+        },
+        material = enemyMaterial
+    )
+    val pickup = Renderable(
+        mesh = quad,
+        transform = Transform().apply {
+            position = Vec3(2f, -1f, 0f)
+            scale = Vec3(0.5f, 0.5f, 1f)
         },
         material = enemyMaterial
     )
@@ -103,20 +114,34 @@ fun main() {
     sprites.add(ground)
 
     sprites.add(player)
+    sprites.add(pickup)
     sprites.add(enemy)
     sprites.add(ground)
 
     camera.target = player.transform
 
+    val pickupTrigger = Trigger(
+        collider = Collider(
+            transform = pickup.transform,
+            halfSize = Vec2(0.25f, 0.25f)
+        ),
+        onEnter = {
+            println("Pickup collected!")
+        },
+        onExit = {
+            println("Left pickup area")
+        }
+    )
+    val triggers = listOf(pickupTrigger)
     // === COLLIDERS ===
     val playerCollider = Collider(
         transform = player.transform,
-        halfSize = Vec2(0.5f, 0.5f)
+        halfSize = Vec2(0.25f, 0.25f)
     )
 
     val wallCollider = Collider(
         transform = enemy.transform,
-        halfSize = Vec2(0.5f, 0.5f)
+        halfSize = Vec2(0.1f, 0.1f)
     )
     val debugColliders = listOf(
         playerCollider,
@@ -124,7 +149,7 @@ fun main() {
     )
     val groundCollider = Collider(
         transform = ground.transform,
-        halfSize = Vec2(2.5f, 0.25f)
+        halfSize = Vec2(7.5f, 0.25f)
     )
 
     val speed = 1.0f
@@ -182,7 +207,10 @@ fun main() {
         if (Input.isKeyPressed(GLFW_KEY_F1)) {
             showColliders = !showColliders
         }
-
+        triggerSystem.update(
+            player = playerCollider,
+            triggers = triggers
+        )
         // === ANIMATION STATE ===
         val moving =
             Input.isKeyDown(GLFW_KEY_A) ||
