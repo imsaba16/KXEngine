@@ -1,6 +1,6 @@
 package com.developersyndicate.kxengine.graphics.material
 
-import com.developersyndicate.kxengine.graphics.Shader
+import com.developersyndicate.kxengine.graphics.shader.Shader
 import com.developersyndicate.kxengine.graphics.Texture
 import com.developersyndicate.kxengine.graphics.atlas.AtlasRegion
 

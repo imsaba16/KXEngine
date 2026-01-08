@@ -1,7 +1,7 @@
 package com.developersyndicate.kxengine.graphics.material
 
 import com.developersyndicate.kxengine.graphics.Color
-import com.developersyndicate.kxengine.graphics.Shader
+import com.developersyndicate.kxengine.graphics.shader.Shader
 
 class ColorMaterial(
     val color: Color
