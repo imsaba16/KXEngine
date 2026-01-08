@@ -1,6 +1,9 @@
 package com.developersyndicate.kxengine
 
 import com.developersyndicate.kxengine.assets.Assets
+import com.developersyndicate.kxengine.combat.Damage
+import com.developersyndicate.kxengine.combat.DamageSystem
+import com.developersyndicate.kxengine.combat.Health
 import com.developersyndicate.kxengine.graphics.*
 import com.developersyndicate.kxengine.graphics.animation.Animator
 import com.developersyndicate.kxengine.graphics.animation.SpriteAnimation
@@ -33,6 +36,8 @@ fun main() {
     val gravity = -9.8f
     val moveSpeed = 5f
     val jumpForce = 5.5f
+    val playerHealth = Health(max = 5)
+    val damageSystem = DamageSystem()
 
     camera.followSpeed = 4f
     camera.deadZoneWidth = 0.8f
@@ -110,6 +115,19 @@ fun main() {
         },
         material = enemyMaterial
     )
+    val damageTrigger = Trigger(
+        collider = Collider(
+            transform = enemy.transform,
+            halfSize = Vec2(0.5f, 0.5f)
+        ),
+        onEnter = {
+            damageSystem.apply(
+                health = playerHealth,
+                damage = Damage(amount = 1)
+            )
+            println("Player HP: ${playerHealth.current}")
+        }
+    )
 
     sprites.add(ground)
 
@@ -132,7 +150,7 @@ fun main() {
             println("Left pickup area")
         }
     )
-    val triggers = listOf(pickupTrigger)
+    val triggers = listOf(pickupTrigger, damageTrigger)
     // === COLLIDERS ===
     val playerCollider = Collider(
         transform = player.transform,
@@ -211,6 +229,7 @@ fun main() {
             player = playerCollider,
             triggers = triggers
         )
+        playerHealth.update(delta)
         // === ANIMATION STATE ===
         val moving =
             Input.isKeyDown(GLFW_KEY_A) ||
@@ -236,6 +255,10 @@ fun main() {
         renderer.render(Scene(), camera, debug = true)
         if (showColliders) {
             renderer.renderColliders(debugColliders, camera)
+        }
+        if (!playerHealth.isAlive) {
+            println("Player died!")
+            loop.stop()
         }
 
         Input.endFrame()
