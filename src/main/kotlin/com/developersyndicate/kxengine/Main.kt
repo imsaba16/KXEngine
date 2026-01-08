@@ -5,6 +5,7 @@ import com.developersyndicate.kxengine.assets.Assets
 import com.developersyndicate.kxengine.combat.Damage
 import com.developersyndicate.kxengine.combat.DamageSystem
 import com.developersyndicate.kxengine.combat.Health
+import com.developersyndicate.kxengine.combat.Knockback
 import com.developersyndicate.kxengine.gameplay.Checkpoint
 import com.developersyndicate.kxengine.gameplay.CheckpointSystem
 import com.developersyndicate.kxengine.graphics.*
@@ -38,6 +39,7 @@ fun main() {
 
     val playerBody = Body()
     val enemyBody = Body()
+
 
     val playerHealth = Health(5)
     val damageSystem = DamageSystem()
@@ -157,9 +159,25 @@ fun main() {
     )
 
     val damageTrigger = Trigger(
-        collider = enemyCollider,
+        collider = Collider(
+            transform = enemy.transform,
+            halfSize = Vec2(0.5f, 0.5f)
+        ),
         onEnter = {
-            damageSystem.apply(playerHealth, Damage(1))
+            val dir =
+                if (player.transform.position.x < enemy.transform.position.x)
+                    -1f else 1f
+
+            if (playerBody.hitStun <= 0f) {
+                damageSystem.apply(
+                    health = playerHealth,
+                    body = playerBody,
+                    damage = Damage(1),
+                    knockback = Knockback(Vec2(dir * 4.5f, 2.5f))
+                )
+                playerBody.hitStun = 0.3f
+                println("Hit! HP = ${playerHealth.current}")
+            }
         }
     )
 
@@ -181,6 +199,9 @@ fun main() {
         if (window.shouldClose()) loop.stop()
 
         playerBody.velocity = playerBody.velocity.copy(x = 0f)
+        if (playerBody.hitStun > 0f) {
+            playerBody.hitStun -= delta
+        }
 
         if (Input.isKeyDown(GLFW_KEY_A)) playerBody.velocity = playerBody.velocity.copy(x = -moveSpeed)
         if (Input.isKeyDown(GLFW_KEY_D)) playerBody.velocity = playerBody.velocity.copy(x = moveSpeed)
@@ -205,7 +226,7 @@ fun main() {
             x = playerOld.x + playerBody.velocity.x * delta
         )
 
-        if (physics.resolve(playerCollider, listOf(enemyCollider, groundCollider))) {
+        if (physics.resolve(playerCollider, listOf(groundCollider))) {
             player.transform.position = playerOld
             playerBody.velocity = playerBody.velocity.copy(x = 0f)
         }
@@ -215,7 +236,7 @@ fun main() {
             y = playerAfterX.y + playerBody.velocity.y * delta
         )
 
-        if (physics.resolve(playerCollider, listOf(enemyCollider, groundCollider))) {
+        if (physics.resolve(playerCollider, listOf(groundCollider))) {
             player.transform.position = playerAfterX
             playerBody.velocity = playerBody.velocity.copy(y = 0f)
             playerBody.grounded = true
