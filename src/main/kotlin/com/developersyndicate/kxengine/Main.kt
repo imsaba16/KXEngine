@@ -7,6 +7,7 @@ import com.developersyndicate.kxengine.graphics.animation.SpriteAnimation
 import com.developersyndicate.kxengine.input.Input
 import com.developersyndicate.kxengine.math.*
 import com.developersyndicate.kxengine.graphics.material.TextureMaterial
+import com.developersyndicate.kxengine.physics.Body
 import com.developersyndicate.kxengine.physics.Collider
 import com.developersyndicate.kxengine.physics.Physics
 import com.developersyndicate.kxengine.scene.Scene
@@ -24,7 +25,11 @@ fun main() {
     val sprites = mutableListOf<Renderable>()
     val animator = Animator()
     val physics = Physics()
+    val playerBody = Body()
     var showColliders = true
+    val gravity = -9.8f
+    val moveSpeed = 5f
+    val jumpForce = 5.5f
 
     camera.followSpeed = 4f
     camera.deadZoneWidth = 0.8f
@@ -86,9 +91,20 @@ fun main() {
         },
         material = enemyMaterial
     )
+    val ground = Renderable(
+        mesh = quad,
+        transform = Transform().apply {
+            position = Vec3(0f, -1.5f, 0f)
+            scale = Vec3(5f, 0.5f, 1f)
+        },
+        material = enemyMaterial
+    )
+
+    sprites.add(ground)
 
     sprites.add(player)
     sprites.add(enemy)
+    sprites.add(ground)
 
     camera.target = player.transform
 
@@ -106,6 +122,10 @@ fun main() {
         playerCollider,
         wallCollider
     )
+    val groundCollider = Collider(
+        transform = ground.transform,
+        halfSize = Vec2(2.5f, 0.25f)
+    )
 
     val speed = 1.0f
 
@@ -118,26 +138,44 @@ fun main() {
         // 🔥 SAVE OLD POSITION (PER FRAME)
         val oldPos = player.transform.position
 
-        // === INPUT MOVEMENT ===
+        playerBody.velocity = playerBody.velocity.copy(x = 0f)
         if (Input.isKeyDown(GLFW_KEY_A)) {
-            player.transform.position =
-                player.transform.position.copy(x = player.transform.position.x - speed * delta)
+            playerBody.velocity = playerBody.velocity.copy(x = -moveSpeed)
         }
         if (Input.isKeyDown(GLFW_KEY_D)) {
-            player.transform.position =
-                player.transform.position.copy(x = player.transform.position.x + speed * delta)
+            playerBody.velocity = playerBody.velocity.copy(x = moveSpeed)
         }
-        if (Input.isKeyDown(GLFW_KEY_W)) {
-            player.transform.position =
-                player.transform.position.copy(y = player.transform.position.y + speed * delta)
+        if (Input.isKeyPressed(GLFW_KEY_SPACE) && playerBody.grounded) {
+            playerBody.velocity = playerBody.velocity.copy(y = jumpForce)
+            playerBody.grounded = false
         }
-        if (Input.isKeyDown(GLFW_KEY_S)) {
-            player.transform.position =
-                player.transform.position.copy(y = player.transform.position.y - speed * delta)
-        }
+        playerBody.velocity = playerBody.velocity.copy(
+            y = playerBody.velocity.y + gravity * delta * playerBody.gravityScale
+        )
 
+        player.transform.position = oldPos.copy(
+            x = oldPos.x + playerBody.velocity.x * delta
+        )
+
+        if (physics.resolve(playerCollider, listOf(wallCollider, groundCollider))) {
+            player.transform.position = oldPos
+            playerBody.velocity = playerBody.velocity.copy(x = 0f)
+        }
+        val posAfterX = player.transform.position
+
+        player.transform.position = posAfterX.copy(
+            y = posAfterX.y + playerBody.velocity.y * delta
+        )
+
+        if (physics.resolve(playerCollider, listOf(wallCollider, groundCollider))) {
+            player.transform.position = posAfterX
+            playerBody.velocity = playerBody.velocity.copy(y = 0f)
+            playerBody.grounded = true
+        } else {
+            playerBody.grounded = false
+        }
         // === COLLISION RESOLUTION ===
-        if (physics.resolve(playerCollider, listOf(wallCollider))) {
+        if (physics.resolve(playerCollider, listOf(wallCollider, groundCollider))) {
             player.transform.position = oldPos
         }
 
