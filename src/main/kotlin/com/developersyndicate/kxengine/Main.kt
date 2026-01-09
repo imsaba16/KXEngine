@@ -3,6 +3,11 @@ package com.developersyndicate.kxengine
 import com.developersyndicate.kxengine.ai.EnemyAI
 import com.developersyndicate.kxengine.assets.Assets
 import com.developersyndicate.kxengine.combat.*
+import com.developersyndicate.kxengine.ecs.World
+import com.developersyndicate.kxengine.ecs.components.BodyC
+import com.developersyndicate.kxengine.ecs.components.HealthC
+import com.developersyndicate.kxengine.ecs.components.TransformC
+import com.developersyndicate.kxengine.ecs.systems.PhysicsSystem
 import com.developersyndicate.kxengine.gameplay.Checkpoint
 import com.developersyndicate.kxengine.gameplay.CheckpointSystem
 import com.developersyndicate.kxengine.graphics.*
@@ -42,6 +47,8 @@ fun main() {
     val damageSystem = DamageSystem()
     val checkpointSystem = CheckpointSystem()
     val attackSystem = AttackSystem()
+    val world = World()
+    val physicsSystem = PhysicsSystem(gravity = -9.8f)
 
     camera.followSpeed = 4f
     camera.deadZoneWidth = 0.8f
@@ -120,6 +127,23 @@ fun main() {
         enemyMaterial
     )
 
+    val playerEntity = world.createEntity()
+
+    world.add(
+        playerEntity,
+        TransformC(Vec3(-6f, 0f, 0f))
+    )
+
+    world.add(
+        playerEntity,
+        BodyC()
+    )
+
+    world.add(
+        playerEntity,
+        HealthC(max = 5)
+    )
+
     sprites.addAll(listOf(ground, player, enemy, checkpointRenderable))
     camera.target = player.transform
 
@@ -159,6 +183,7 @@ fun main() {
     loop.run { delta ->
         window.pollEvents()
         if (window.shouldClose()) loop.stop()
+        physicsSystem.update(world, delta)
 
         playerBody.velocity = playerBody.velocity.copy(x = 0f)
         if (playerBody.hitStun > 0f) playerBody.hitStun -= delta
