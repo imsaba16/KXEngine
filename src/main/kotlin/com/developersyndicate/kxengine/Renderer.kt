@@ -1,18 +1,24 @@
 package com.developersyndicate.kxengine
 
-import com.developersyndicate.kxengine.debug.DebugGrid
-import com.developersyndicate.kxengine.debug.DebugRect
+import com.developersyndicate.kxengine.debug.*
 import com.developersyndicate.kxengine.graphics.*
 import com.developersyndicate.kxengine.graphics.batch.SpriteBatch
 import com.developersyndicate.kxengine.graphics.material.TextureMaterial
+import com.developersyndicate.kxengine.graphics.shader.Shader
 import com.developersyndicate.kxengine.math.Mat4
+import com.developersyndicate.kxengine.physics.Collider
 import com.developersyndicate.kxengine.scene.Scene
+import com.developersyndicate.kxengine.graphics.shader.DebugShader
+import com.developersyndicate.kxengine.debug.DebugLineRenderer
+import org.lwjgl.opengl.GL11.*
 
 class Renderer {
 
     private val debugGrid = DebugGrid()
     private var deadZoneRect: DebugRect? = null
     private val spriteBatch = SpriteBatch()
+    private val debugShader = DebugShader()
+    private val debugLines = DebugLineRenderer()
 
     private val shader = Shader(
         vertexSource = """
@@ -82,40 +88,72 @@ class Renderer {
         shader.unbind()
     }
 
-    fun renderBatched(
+    fun renderSprites(
         sprites: List<Renderable>,
         camera: Camera
     ) {
         if (sprites.isEmpty()) return
 
-        require(sprites.all { it.material is TextureMaterial }) {
-            "SpriteBatch supports only TextureMaterial"
-        }
-
         shader.bind()
-
         shader.setMat4("uVP", camera.matrix().toFloatArray())
 
-        val texture = (sprites.first().material as TextureMaterial).texture
-        spriteBatch.begin(texture)
+        val batches = sprites.groupBy {
+            val material = it.material as TextureMaterial
+            material.texture
+        }
 
-        for (obj in sprites) {
-            val material = obj.material as TextureMaterial
-            spriteBatch.draw(
-                model = obj.transform.matrix(),
-                region = material.region,
-                color = floatArrayOf(1f, 1f, 1f, 1f)
+        for ((texture, batchSprites) in batches) {
+            spriteBatch.begin(texture)
+            for (obj in batchSprites) {
+                val material = obj.material as TextureMaterial
+                spriteBatch.draw(
+                    model = obj.transform.matrix(),
+                    region = material.region,
+                    color = floatArrayOf(1f, 1f, 1f, 1f)
+                )
+            }
+            spriteBatch.end()
+        }
+
+        shader.unbind()
+    }
+
+    fun renderColliders(
+        colliders: List<Collider>,
+        camera: Camera
+    ) {
+        glDisable(GL_DEPTH_TEST)
+        glDepthMask(false)
+        glDisable(GL_CULL_FACE)
+        glLineWidth(2.0f)
+
+        debugShader.bind()
+        debugShader.setMat4("uVP", camera.matrix().toFloatArray())
+        debugShader.setVec4("uColor", Color(1f, 0f, 0f, 0.4f))
+
+        for (collider in colliders) {
+            val box = collider.aabb()
+            debugLines.drawRect(
+                minX = box.min.x,
+                minY = box.min.y,
+                maxX = box.max.x,
+                maxY = box.max.y
             )
         }
 
-        spriteBatch.end()
-        shader.unbind()
+        debugShader.unbind()
+        glDepthMask(true)
+        glEnable(GL_CULL_FACE)
+        glEnable(GL_DEPTH_TEST)
     }
 
     fun destroy(mesh: TriangleMesh) {
         deadZoneRect?.destroy()
         debugGrid.destroy()
+        debugLines.destroy()
         spriteBatch.destroy()
+        debugLines.destroy()
+        debugShader.destroy()
         mesh.destroy()
         shader.destroy()
     }
