@@ -11,8 +11,7 @@ import com.developersyndicate.kxengine.ecs.systems.PhysicsSystem
 import com.developersyndicate.kxengine.gameplay.Checkpoint
 import com.developersyndicate.kxengine.gameplay.CheckpointSystem
 import com.developersyndicate.kxengine.graphics.*
-import com.developersyndicate.kxengine.graphics.animation.Animator
-import com.developersyndicate.kxengine.graphics.animation.SpriteAnimation
+import com.developersyndicate.kxengine.graphics.animation.*
 import com.developersyndicate.kxengine.input.Input
 import com.developersyndicate.kxengine.math.*
 import com.developersyndicate.kxengine.graphics.material.TextureMaterial
@@ -31,7 +30,7 @@ class DemoGame : Game {
 
     private val physics = Physics()
     private val triggerSystem = TriggerSystem()
-    private val playerAnimator = Animator()
+    private lateinit var playerController: AnimatorController
     private val enemyAnimator = Animator()
 
     private val gravity = -9.8f
@@ -140,7 +139,24 @@ class DemoGame : Game {
             false
         )
 
-        playerAnimator.play(idleAnimation)
+        playerController = AnimatorController().apply {
+            val locomotionState = BlendTreeState("Locomotion", "speed").apply {
+                addSubAnimation(0f, idleAnimation)
+                addSubAnimation(0.1f, walkAnimation)
+            }
+            val attackAnim = SpriteAnimation(walkAnimation.frames, 0.1f, false)
+            val attackState = ClipState("Attack", attackAnim)
+
+            locomotionState.transitions.add(
+                Transition("Attack", listOf(TransitionCondition("attack", ConditionType.TRUE)))
+            )
+            attackState.transitions.add(
+                Transition("Locomotion", emptyList(), hasExitTime = true)
+            )
+
+            addState(locomotionState)
+            addState(attackState)
+        }
 
         player = Renderable(
             quad,
@@ -288,6 +304,7 @@ class DemoGame : Game {
         if (Input.isKeyDown(GLFW_KEY_D)) facingDir = 1f
 
         if (Input.isKeyPressed(GLFW_KEY_J)) {
+            playerController.setTrigger("attack")
             val attackTransform = Transform().apply {
                 position = player.transform.position.copy(
                     x = player.transform.position.x + facingDir * 0.6f,
@@ -330,9 +347,9 @@ class DemoGame : Game {
         triggerSystem.update(playerCollider, triggers)
 
         playerHealth.update(fixedDelta)
-        playerAnimator.play(if (playerBody.velocity.x != 0f) walkAnimation else idleAnimation)
-        playerAnimator.update(fixedDelta)
-        playerMaterial.region = playerAnimator.currentFrame()
+        playerController.setFloat("speed", Math.abs(playerBody.velocity.x))
+        playerController.update(fixedDelta)
+        playerMaterial.region = playerController.currentFrame()
 
         if (enemyDeath.state == DeathState.DYING) {
             enemyAnimator.update(fixedDelta)
