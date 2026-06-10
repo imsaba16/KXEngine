@@ -1,15 +1,11 @@
 plugins {
     kotlin("jvm") version "2.2.20"
-    application
-}
-
-application {
-    mainClass.set("com.developersyndicate.kxengine.MainKt")
-    applicationDefaultJvmArgs = listOf("-XstartOnFirstThread")
+    `java-library`
 }
 
 group = "com.developersyndicate.kxengine"
 version = "0.0.1-SNAPSHOT"
+
 
 repositories {
     mavenCentral()
@@ -18,11 +14,11 @@ repositories {
 val lwjgl = "3.3.6"
 
 dependencies {
-    implementation("org.lwjgl:lwjgl:$lwjgl")
-    implementation("org.lwjgl:lwjgl-glfw:$lwjgl")
-    implementation("org.lwjgl:lwjgl-opengl:$lwjgl")
-    implementation("org.lwjgl:lwjgl-stb:$lwjgl")
-    implementation("org.lwjgl:lwjgl-openal:$lwjgl")
+    api("org.lwjgl:lwjgl:$lwjgl")
+    api("org.lwjgl:lwjgl-glfw:$lwjgl")
+    api("org.lwjgl:lwjgl-opengl:$lwjgl")
+    api("org.lwjgl:lwjgl-stb:$lwjgl")
+    api("org.lwjgl:lwjgl-openal:$lwjgl")
     implementation("org.slf4j:slf4j-simple:2.0.17")
 
     runtimeOnly("org.lwjgl:lwjgl::natives-macos-arm64")

@@ -36,11 +36,13 @@ class Framebuffer(val width: Int, val height: Int) {
 
     fun bind() {
         glBindFramebuffer(GL_FRAMEBUFFER, id)
+        // Use the FBO's own pixel dimensions (set at creation time using framebufferWidth/Height)
         glViewport(0, 0, width, height)
     }
 
     fun unbind(windowWidth: Int, windowHeight: Int) {
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
+        // windowWidth/Height must be physical pixel dimensions, not logical points
         glViewport(0, 0, windowWidth, windowHeight)
     }
 

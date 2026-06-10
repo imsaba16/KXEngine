@@ -10,6 +10,14 @@ import org.lwjgl.glfw.GLFWKeyCallbackI
 class GlfwWindow(width: Int, height: Int, title: String) : Window {
     val handle: Long
 
+    /** Actual OpenGL framebuffer size in physical pixels.
+     *  On Retina / HiDPI displays this is 2× (or more) the logical window size.
+     *  Always use these values for glViewport and FBO creation. */
+    var framebufferWidth: Int = width
+        private set
+    var framebufferHeight: Int = height
+        private set
+
     init {
         if (!glfwInit()) error("GLFW init failed")
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3)
@@ -21,7 +29,7 @@ class GlfwWindow(width: Int, height: Int, title: String) : Window {
         if (handle == 0L) error("Window creation failed")
         glfwSetKeyCallback(handle) { _, key, _, action, _ ->
             when (action) {
-                GLFW_PRESS -> Input.setKey(key, true)
+                GLFW_PRESS   -> Input.setKey(key, true)
                 GLFW_RELEASE -> Input.setKey(key, false)
             }
         }
@@ -36,6 +44,21 @@ class GlfwWindow(width: Int, height: Int, title: String) : Window {
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glfwSwapInterval(1)
+
+        // Query real framebuffer size – critical on macOS Retina where
+        // logical points ≠ physical pixels (typically 2× scale factor).
+        val wBuf = IntArray(1)
+        val hBuf = IntArray(1)
+        glfwGetFramebufferSize(handle, wBuf, hBuf)
+        framebufferWidth  = wBuf[0]
+        framebufferHeight = hBuf[0]
+        println("GlfwWindow: logical=${width}x${height}  framebuffer=${framebufferWidth}x${framebufferHeight}")
+
+        // Keep framebuffer size in sync when the window is resized
+        glfwSetFramebufferSizeCallback(handle) { _, w, h ->
+            framebufferWidth  = w
+            framebufferHeight = h
+        }
     }
     override fun pollEvents() {
         glfwPollEvents()
@@ -44,7 +67,6 @@ class GlfwWindow(width: Int, height: Int, title: String) : Window {
     override fun shouldClose(): Boolean = glfwWindowShouldClose(handle)
 
     override fun destroy() {
-
         glfwDestroyWindow(handle)
         glfwTerminate()
     }

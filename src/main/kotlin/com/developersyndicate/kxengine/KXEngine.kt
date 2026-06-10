@@ -16,6 +16,11 @@ class KXEngine(
     val loop = GameLoop(time)
     val renderer = Renderer()
 
+    /** Physical framebuffer size in pixels (differs from width/height on Retina displays). */
+    val framebufferWidth: Int  get() = window.framebufferWidth
+    val framebufferHeight: Int get() = window.framebufferHeight
+
+
     override fun start() {
         SoundEngine.init()
 
