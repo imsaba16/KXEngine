@@ -9,7 +9,7 @@ import org.lwjgl.system.MemoryUtil
 import java.io.File
 import java.io.InputStream
 
-class Texture(val resourcePath: String) {
+class Texture(val resourcePath: String = "") {
 
     var id: Int = 0
         private set
@@ -23,12 +23,50 @@ class Texture(val resourcePath: String) {
         private set
 
     init {
-        val f = File("src/main/resources/$resourcePath")
-        if (f.exists()) {
-            localFile = f
-            lastModified = f.lastModified()
+        if (resourcePath.isNotEmpty()) {
+            val f = File("src/main/resources/$resourcePath")
+            if (f.exists()) {
+                localFile = f
+                lastModified = f.lastModified()
+            }
+            loadTexture()
         }
-        loadTexture()
+    }
+
+    constructor(width: Int, height: Int, color: Color = Color.WHITE) : this("") {
+        this.width = width
+        this.height = height
+        this.id = glGenTextures()
+        glBindTexture(GL_TEXTURE_2D, id)
+
+        val buffer = MemoryUtil.memAlloc(width * height * 4)
+        val r = (color.r * 255).toInt().toByte()
+        val g = (color.g * 255).toInt().toByte()
+        val b = (color.b * 255).toInt().toByte()
+        val a = (color.a * 255).toInt().toByte()
+        for (i in 0 until width * height) {
+            buffer.put(r).put(g).put(b).put(a)
+        }
+        buffer.flip()
+
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGBA,
+            width,
+            height,
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            buffer
+        )
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+
+        MemoryUtil.memFree(buffer)
     }
 
     private fun loadTexture() {

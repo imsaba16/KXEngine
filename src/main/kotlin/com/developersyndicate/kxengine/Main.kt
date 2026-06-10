@@ -11,6 +11,7 @@ import com.developersyndicate.kxengine.ecs.systems.PhysicsSystem
 import com.developersyndicate.kxengine.gameplay.Checkpoint
 import com.developersyndicate.kxengine.gameplay.CheckpointSystem
 import com.developersyndicate.kxengine.graphics.*
+import com.developersyndicate.kxengine.graphics.ui.*
 import com.developersyndicate.kxengine.graphics.animation.*
 import com.developersyndicate.kxengine.input.Input
 import com.developersyndicate.kxengine.math.*
@@ -86,6 +87,13 @@ class DemoGame : Game {
     private val particleSystem = ParticleSystem()
     private lateinit var checkpointParticles: ParticleEmitter
     private lateinit var hitParticles: ParticleEmitter
+
+    private lateinit var uiCamera: UICamera
+    private lateinit var uiManager: UIManager
+    private lateinit var healthBar: UIProgressBar
+    private lateinit var healthLabel: UILabel
+    private lateinit var gameOverLabel: UILabel
+    private lateinit var restartButton: UIButton
 
     override fun init(engine: KXEngine) {
         this.engine = engine
@@ -260,6 +268,76 @@ class DemoGame : Game {
         )
         particleSystem.add(checkpointParticles)
         particleSystem.add(hitParticles)
+
+        // Initialize UI
+        uiCamera = UICamera(engine.width.toFloat(), engine.height.toFloat())
+        uiManager = UIManager()
+
+        val font = BitmapFont("assets/font.fnt", atlasTexture)
+
+        // Health Bar (top-left)
+        healthBar = UIProgressBar(
+            x = 20f,
+            y = engine.height.toFloat() - 40f,
+            width = 200f,
+            height = 20f,
+            progress = 1.0f,
+            backgroundColor = Color(0.2f, 0.0f, 0.0f, 1.0f),
+            foregroundColor = Color(0.8f, 0.2f, 0.2f, 1.0f)
+        )
+        uiManager.add(healthBar)
+
+        // Health Label (top-left, just below health bar)
+        healthLabel = UILabel(
+            x = 20f,
+            y = engine.height.toFloat() - 65f,
+            text = "HP: ${playerHealth.current} / ${playerHealth.max}",
+            font = font,
+            scale = 1.0f,
+            color = Color.WHITE
+        )
+        uiManager.add(healthLabel)
+
+        // Game Over Label (center)
+        val goText = "GAME OVER"
+        val goWidth = font.getTextWidth(goText, 2.0f)
+        gameOverLabel = UILabel(
+            x = (engine.width.toFloat() - goWidth) / 2f,
+            y = engine.height.toFloat() / 2f + 40f,
+            text = goText,
+            font = font,
+            scale = 2.0f,
+            color = Color(1.0f, 0.1f, 0.1f, 1.0f)
+        ).apply {
+            visible = false
+        }
+        uiManager.add(gameOverLabel)
+
+        // Restart Button (center, below game over text)
+        restartButton = UIButton(
+            x = (engine.width.toFloat() - 150f) / 2f,
+            y = engine.height.toFloat() / 2f - 30f,
+            width = 150f,
+            height = 40f,
+            text = "RESTART",
+            font = font,
+            textScale = 1.0f,
+            textColor = Color.WHITE,
+            backgroundColor = Color(0.3f, 0.3f, 0.3f, 1.0f),
+            hoverColor = Color(0.4f, 0.4f, 0.4f, 1.0f),
+            pressedColor = Color(0.15f, 0.15f, 0.15f, 1.0f)
+        ).apply {
+            visible = false
+            active = false
+            onClick = {
+                checkpointSystem.respawn(player.transform, playerBody, playerHealth)
+                enemyHealth.current = enemyHealth.max
+                if (!scene.all().contains(enemy)) {
+                    scene.add(enemyNode)
+                }
+            }
+        }
+        uiManager.add(restartButton)
     }
 
     override fun update(fixedDelta: Float) {
@@ -268,13 +346,15 @@ class DemoGame : Game {
         playerBody.velocity = playerBody.velocity.copy(x = 0f)
         if (playerBody.hitStun > 0f) playerBody.hitStun -= fixedDelta
 
-        if (Input.isKeyDown(GLFW_KEY_A)) playerBody.velocity = playerBody.velocity.copy(x = -moveSpeed)
-        if (Input.isKeyDown(GLFW_KEY_D)) playerBody.velocity = playerBody.velocity.copy(x = moveSpeed)
+        if (playerHealth.isAlive) {
+            if (Input.isKeyDown(GLFW_KEY_A)) playerBody.velocity = playerBody.velocity.copy(x = -moveSpeed)
+            if (Input.isKeyDown(GLFW_KEY_D)) playerBody.velocity = playerBody.velocity.copy(x = moveSpeed)
 
-        if (Input.isKeyPressed(GLFW_KEY_SPACE) && playerBody.grounded) {
-            playerBody.velocity = playerBody.velocity.copy(y = jumpForce)
-            playerBody.grounded = false
-            jumpSource.play(jumpSound)
+            if (Input.isKeyPressed(GLFW_KEY_SPACE) && playerBody.grounded) {
+                playerBody.velocity = playerBody.velocity.copy(y = jumpForce)
+                playerBody.grounded = false
+                jumpSource.play(jumpSound)
+            }
         }
 
         playerBody.velocity = playerBody.velocity.copy(y = playerBody.velocity.y + gravity * fixedDelta)
@@ -300,7 +380,7 @@ class DemoGame : Game {
         if (Input.isKeyDown(GLFW_KEY_A)) facingDir = -1f
         if (Input.isKeyDown(GLFW_KEY_D)) facingDir = 1f
 
-        if (Input.isKeyPressed(GLFW_KEY_J)) {
+        if (playerHealth.isAlive && Input.isKeyPressed(GLFW_KEY_J)) {
             playerController.setTrigger("attack")
             val attackTransform = Transform().apply {
                 position = player.transform.position.copy(
@@ -360,11 +440,16 @@ class DemoGame : Game {
         swordNode.transform.rotation += 2.0f * fixedDelta
         scene.update(fixedDelta)
 
-        if (!playerHealth.isAlive) {
-            checkpointSystem.respawn(player.transform, playerBody, playerHealth)
-            enemyHealth.current = enemyHealth.max
-            if (!scene.all().contains(enemy)) scene.add(enemyNode)
-        }
+        // Update UI HUD
+        healthBar.progress = playerHealth.current.toFloat() / playerHealth.max.toFloat()
+        healthLabel.text = "HP: ${playerHealth.current} / ${playerHealth.max}"
+
+        val isGameOver = !playerHealth.isAlive
+        gameOverLabel.visible = isGameOver
+        restartButton.visible = isGameOver
+        restartButton.active = isGameOver
+
+        uiManager.update(fixedDelta)
     }
 
     override fun render(delta: Float) {
@@ -387,6 +472,9 @@ class DemoGame : Game {
             grayscale = false,
             vignetteStrength = 1.0f
         )
+
+        // Render screenspace UI HUD and menus on top of post-processed buffer
+        engine.renderer.renderUI(uiManager, uiCamera)
     }
 
     override fun dispose() {

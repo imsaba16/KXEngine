@@ -58,6 +58,15 @@ class SpriteBatch(
         currentTexture = texture
     }
 
+    fun switchTexture(texture: Texture) {
+        if (currentTexture != texture) {
+            if (spriteCount > 0) {
+                end()
+            }
+            begin(texture)
+        }
+    }
+
     fun draw(
         model: Mat4,
         region: AtlasRegion,

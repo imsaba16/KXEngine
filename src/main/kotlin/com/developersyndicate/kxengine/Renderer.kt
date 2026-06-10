@@ -2,6 +2,7 @@ package com.developersyndicate.kxengine
 
 import com.developersyndicate.kxengine.debug.*
 import com.developersyndicate.kxengine.graphics.*
+import com.developersyndicate.kxengine.graphics.ui.*
 import com.developersyndicate.kxengine.graphics.batch.SpriteBatch
 import com.developersyndicate.kxengine.graphics.material.TextureMaterial
 import com.developersyndicate.kxengine.graphics.shader.Shader
@@ -276,6 +277,24 @@ class Renderer {
         applyLightingUniforms()
 
         particleSystem.draw(spriteBatch)
+
+        shader.unbind()
+    }
+
+    fun renderUI(
+        uiManager: UIManager,
+        uiCamera: UICamera
+    ) {
+        shader.bind()
+        shader.setMat4("uVP", uiCamera.matrix.toFloatArray())
+        shader.setVec4("uUVOffsetScale", Color(0f, 0f, 1f, 1f))
+        shader.setInt("uUseTexture", 1)
+        shader.setVec4("uColor", Color.WHITE)
+        
+        shader.setInt("uUseLighting", 0)
+        shader.setInt("uUseNormalMap", 0)
+
+        uiManager.draw(spriteBatch)
 
         shader.unbind()
     }

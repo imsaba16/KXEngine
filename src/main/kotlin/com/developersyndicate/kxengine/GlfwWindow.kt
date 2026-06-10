@@ -25,6 +25,12 @@ class GlfwWindow(width: Int, height: Int, title: String) : Window {
                 GLFW_RELEASE -> Input.setKey(key, false)
             }
         }
+        glfwSetCursorPosCallback(handle) { _, xpos, ypos ->
+            Input.setMousePosition(xpos.toFloat(), ypos.toFloat())
+        }
+        glfwSetMouseButtonCallback(handle) { _, button, action, _ ->
+            Input.setMouseButton(button, action == GLFW_PRESS)
+        }
         glfwMakeContextCurrent(handle)
         GL.createCapabilities()
         glEnable(GL_BLEND)
