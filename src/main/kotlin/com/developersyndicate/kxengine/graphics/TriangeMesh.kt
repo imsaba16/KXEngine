@@ -3,7 +3,7 @@ package com.developersyndicate.kxengine.graphics
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.system.MemoryUtil
 
-class TriangleMesh {
+class TriangleMesh : Mesh {
 
     private val vaoId: Int
     private val vboId: Int
@@ -42,19 +42,19 @@ class TriangleMesh {
         glBindVertexArray(0)
     }
 
-    fun bind() {
+    override fun bind() {
         glBindVertexArray(vaoId)
     }
 
-    fun unbind() {
+    override fun unbind() {
         glBindVertexArray(0)
     }
 
-    fun draw() {
+    override fun draw() {
         glDrawArrays(GL_TRIANGLES, 0, 3)
     }
 
-    fun destroy() {
+    override fun destroy() {
         glDeleteBuffers(vboId)
         glDeleteVertexArrays(vaoId)
     }

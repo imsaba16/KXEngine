@@ -6,16 +6,33 @@ import org.lwjgl.opengl.GL13.*
 import org.lwjgl.stb.STBImage.*
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil
+import java.io.File
 import java.io.InputStream
 
-class Texture(resourcePath: String) {
+class Texture(val resourcePath: String) {
 
-    val id: Int
-    val width: Int
-    val height: Int
+    var id: Int = 0
+        private set
+    var width: Int = 0
+        private set
+    var height: Int = 0
+        private set
+
+    private var localFile: File? = null
+    var lastModified: Long = 0L
+        private set
 
     init {
-        val imageBytes = readResource(resourcePath)
+        val f = File("src/main/resources/$resourcePath")
+        if (f.exists()) {
+            localFile = f
+            lastModified = f.lastModified()
+        }
+        loadTexture()
+    }
+
+    private fun loadTexture() {
+        val imageBytes = localFile?.readBytes() ?: readResource(resourcePath)
 
         MemoryStack.stackPush().use { stack ->
             val w = stack.mallocInt(1)
@@ -38,7 +55,9 @@ class Texture(resourcePath: String) {
             width = w[0]
             height = h[0]
 
-            id = glGenTextures()
+            if (id == 0) {
+                id = glGenTextures()
+            }
             glBindTexture(GL_TEXTURE_2D, id)
 
             glTexImage2D(
@@ -63,6 +82,20 @@ class Texture(resourcePath: String) {
         }
     }
 
+    fun checkAndReload(): Boolean {
+        val f = localFile ?: return false
+        if (f.exists()) {
+            val mod = f.lastModified()
+            if (mod > lastModified) {
+                lastModified = mod
+                loadTexture()
+                println("SoundEngine/AssetSystem: Texture reloaded: $resourcePath")
+                return true
+            }
+        }
+        return false
+    }
+
     private fun readResource(path: String): ByteArray {
         val stream: InputStream =
             Texture::class.java.classLoader
@@ -78,6 +111,9 @@ class Texture(resourcePath: String) {
     }
 
     fun destroy() {
-        glDeleteTextures(id)
+        if (id != 0) {
+            glDeleteTextures(id)
+            id = 0
+        }
     }
 }

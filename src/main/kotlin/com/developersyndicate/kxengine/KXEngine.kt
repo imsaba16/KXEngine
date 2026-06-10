@@ -1,6 +1,9 @@
 package com.developersyndicate.kxengine
 
 import com.developersyndicate.kxengine.input.Input
+import com.developersyndicate.kxengine.audio.SoundEngine
+import com.developersyndicate.kxengine.assets.Assets
+import com.developersyndicate.kxengine.debug.Profiler
 
 class KXEngine(
     val game: Game,
@@ -14,6 +17,8 @@ class KXEngine(
     val renderer = Renderer()
 
     override fun start() {
+        SoundEngine.init()
+
         game.init(this)
 
         loop.run(
@@ -24,8 +29,13 @@ class KXEngine(
                 window.pollEvents()
                 if (window.shouldClose()) loop.stop()
 
+                if (EngineConfig.hotReloadEnabled) {
+                    Assets.updateHotReload()
+                }
+
                 game.render(delta)
 
+                Profiler.tickFrame()
                 Input.endFrame()
                 window.swapBuffers()
             }
@@ -40,6 +50,7 @@ class KXEngine(
     }
 
     private fun cleanup() {
+        SoundEngine.destroy()
         window.destroy()
     }
 }

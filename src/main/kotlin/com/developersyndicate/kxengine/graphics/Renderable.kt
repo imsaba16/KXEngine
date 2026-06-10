@@ -4,8 +4,9 @@ import com.developersyndicate.kxengine.graphics.material.Material
 import com.developersyndicate.kxengine.physics.Collider
 
 class Renderable(
-    val mesh: QuadMesh,
+    val mesh: Mesh,
     val transform: Transform,
     val material: Material,
-    val collider: Collider? = null
+    val collider: Collider? = null,
+    var zIndex: Int = 0
 )

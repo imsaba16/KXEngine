@@ -4,28 +4,63 @@ import com.developersyndicate.kxengine.graphics.Color
 import org.lwjgl.opengl.GL11
 import org.lwjgl.opengl.GL20
 import org.lwjgl.system.MemoryUtil
+import java.io.File
 
 open class Shader(
     vertexSource: String,
     fragmentSource: String
 ) {
-    private val programId: Int
+    private var programId: Int = 0
+
+    private var vertexFile: File? = null
+    private var fragmentFile: File? = null
+    private var vertLastModified = 0L
+    private var fragLastModified = 0L
 
     init {
-        val vertexId = compileShader(vertexSource, GL20.GL_VERTEX_SHADER)
-        val fragmentId = compileShader(fragmentSource, GL20.GL_FRAGMENT_SHADER)
+        compileAndLink(vertexSource, fragmentSource)
+    }
 
-        programId = GL20.glCreateProgram()
-        GL20.glAttachShader(programId, vertexId)
-        GL20.glAttachShader(programId, fragmentId)
-        GL20.glLinkProgram(programId)
+    constructor(vertexPath: String, fragmentPath: String, isPath: Boolean = true) : this(
+        readSource(vertexPath),
+        readSource(fragmentPath)
+    ) {
+        val vf = File("src/main/resources/$vertexPath")
+        if (vf.exists()) {
+            vertexFile = vf
+            vertLastModified = vf.lastModified()
+        }
+        val ff = File("src/main/resources/$fragmentPath")
+        if (ff.exists()) {
+            fragmentFile = ff
+            fragLastModified = ff.lastModified()
+        }
+    }
 
-        if (GL20.glGetProgrami(programId, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) {
-            error("Shader program linking failed:\n${GL20.glGetProgramInfoLog(programId)}")
+    private fun compileAndLink(vertSrc: String, fragSrc: String) {
+        val vertexId = compileShader(vertSrc, GL20.GL_VERTEX_SHADER)
+        val fragmentId = compileShader(fragSrc, GL20.GL_FRAGMENT_SHADER)
+
+        val newProgramId = GL20.glCreateProgram()
+        GL20.glAttachShader(newProgramId, vertexId)
+        GL20.glAttachShader(newProgramId, fragmentId)
+        GL20.glLinkProgram(newProgramId)
+
+        if (GL20.glGetProgrami(newProgramId, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) {
+            val log = GL20.glGetProgramInfoLog(newProgramId)
+            GL20.glDeleteShader(vertexId)
+            GL20.glDeleteShader(fragmentId)
+            GL20.glDeleteProgram(newProgramId)
+            error("Shader program linking failed:\n$log")
         }
 
         GL20.glDeleteShader(vertexId)
         GL20.glDeleteShader(fragmentId)
+
+        if (programId != 0) {
+            GL20.glDeleteProgram(programId)
+        }
+        programId = newProgramId
     }
 
     private fun compileShader(source: String, type: Int): Int {
@@ -34,10 +69,33 @@ open class Shader(
         GL20.glCompileShader(id)
 
         if (GL20.glGetShaderi(id, GL20.GL_COMPILE_STATUS) == GL11.GL_FALSE) {
-            error("Shader compilation failed:\n${GL20.glGetShaderInfoLog(id)}")
+            val log = GL20.glGetShaderInfoLog(id)
+            GL20.glDeleteShader(id)
+            error("Shader compilation failed:\n$log")
         }
 
         return id
+    }
+
+    fun checkAndReload(): Boolean {
+        val vf = vertexFile ?: return false
+        val ff = fragmentFile ?: return false
+        if (vf.exists() && ff.exists()) {
+            val vMod = vf.lastModified()
+            val fMod = ff.lastModified()
+            if (vMod > vertLastModified || fMod > fragLastModified) {
+                vertLastModified = vMod
+                fragLastModified = fMod
+                try {
+                    compileAndLink(vf.readText(), ff.readText())
+                    println("SoundEngine/AssetSystem: Shader reloaded successfully.")
+                    return true
+                } catch (e: Exception) {
+                    println("Warning: Error reloading shader: ${e.message}")
+                }
+            }
+        }
+        return false
     }
 
     fun setMat4(name: String, matrix: FloatArray) {
@@ -58,6 +116,11 @@ open class Shader(
         GL20.glUniform1i(location, value)
     }
 
+    fun setFloat(name: String, value: Float) {
+        val location = GL20.glGetUniformLocation(programId, name)
+        GL20.glUniform1f(location, value)
+    }
+
     fun bind() {
         GL20.glUseProgram(programId)
     }
@@ -67,6 +130,19 @@ open class Shader(
     }
 
     fun destroy() {
-        GL20.glDeleteProgram(programId)
+        if (programId != 0) {
+            GL20.glDeleteProgram(programId)
+            programId = 0
+        }
+    }
+
+    companion object {
+        private fun readSource(path: String): String {
+            val f = File("src/main/resources/$path")
+            if (f.exists()) return f.readText()
+            val stream = Shader::class.java.classLoader.getResourceAsStream(path)
+                ?: error("Shader file not found: $path")
+            return stream.bufferedReader().use { it.readText() }
+        }
     }
 }

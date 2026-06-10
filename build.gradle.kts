@@ -22,12 +22,14 @@ dependencies {
     implementation("org.lwjgl:lwjgl-glfw:$lwjgl")
     implementation("org.lwjgl:lwjgl-opengl:$lwjgl")
     implementation("org.lwjgl:lwjgl-stb:$lwjgl")
+    implementation("org.lwjgl:lwjgl-openal:$lwjgl")
     implementation("org.slf4j:slf4j-simple:2.0.17")
 
     runtimeOnly("org.lwjgl:lwjgl::natives-macos-arm64")
     runtimeOnly("org.lwjgl:lwjgl-glfw::natives-macos-arm64")
     runtimeOnly("org.lwjgl:lwjgl-opengl::natives-macos-arm64")
     runtimeOnly("org.lwjgl:lwjgl-stb::natives-macos-arm64")
+    runtimeOnly("org.lwjgl:lwjgl-openal::natives-macos-arm64")
 
     testImplementation(kotlin("test"))
 }

@@ -11,6 +11,7 @@ import com.developersyndicate.kxengine.scene.Scene
 import com.developersyndicate.kxengine.graphics.shader.DebugShader
 import com.developersyndicate.kxengine.debug.DebugLineRenderer
 import org.lwjgl.opengl.GL11.*
+import org.lwjgl.opengl.GL13.*
 
 class Renderer {
 
@@ -19,6 +20,8 @@ class Renderer {
     private val spriteBatch = SpriteBatch()
     private val debugShader = DebugShader()
     private val debugLines = DebugLineRenderer()
+    
+    private val screenQuad = QuadMesh()
 
     private val shader = Shader(
         vertexSource = """
@@ -51,6 +54,43 @@ class Renderer {
 
             void main() {
                 FragColor = texture(uTexture, vUV) * vColor;
+            }
+        """.trimIndent()
+    )
+
+    private val postProcessShader = Shader(
+        vertexSource = """
+            #version 330 core
+            layout (location = 0) in vec2 aPos;
+            layout (location = 1) in vec2 aUV;
+
+            out vec2 vUV;
+
+            void main() {
+                vUV = aUV;
+                gl_Position = vec4(aPos, 0.0, 1.0);
+            }
+        """.trimIndent(),
+
+        fragmentSource = """
+            #version 330 core
+            in vec2 vUV;
+            uniform sampler2D uTexture;
+            uniform float uVignetteStrength;
+            uniform bool uGrayscale;
+
+            out vec4 FragColor;
+
+            void main() {
+                vec4 color = texture(uTexture, vUV);
+                if (uGrayscale) {
+                    float avg = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
+                    color = vec4(avg, avg, avg, color.a);
+                }
+                vec2 uv = vUV - 0.5;
+                float dist = length(uv);
+                float vignette = smoothstep(0.8, 0.4, dist * uVignetteStrength);
+                FragColor = vec4(color.rgb * vignette, color.a);
             }
         """.trimIndent()
     )
@@ -92,6 +132,7 @@ class Renderer {
             obj.mesh.bind()
             obj.mesh.draw()
             obj.mesh.unbind()
+            Profiler.drawCalls++
         }
 
         shader.unbind()
@@ -107,25 +148,57 @@ class Renderer {
         shader.setMat4("uVP", camera.matrix().toFloatArray())
         shader.setVec4("uUVOffsetScale", Color(0f, 0f, 1f, 1f))
 
-        val batches = sprites.groupBy {
-            val material = it.material as TextureMaterial
-            material.texture
-        }
+        // Sort renderables by z-index layer
+        val sortedSprites = sprites.sortedBy { it.zIndex }
+        val layers = sortedSprites.groupBy { it.zIndex }
 
-        for ((texture, batchSprites) in batches) {
-            spriteBatch.begin(texture)
-            for (obj in batchSprites) {
-                val material = obj.material as TextureMaterial
-                spriteBatch.draw(
-                    model = obj.transform.matrix(),
-                    region = material.region,
-                    color = floatArrayOf(1f, 1f, 1f, 1f)
-                )
+        for ((_, layerSprites) in layers) {
+            val batches = layerSprites.groupBy {
+                val material = it.material as TextureMaterial
+                material.texture
             }
-            spriteBatch.end()
+            for ((texture, batchSprites) in batches) {
+                spriteBatch.begin(texture)
+                for (obj in batchSprites) {
+                    val material = obj.material as TextureMaterial
+                    spriteBatch.draw(
+                        model = obj.transform.matrix(),
+                        region = material.region,
+                        color = floatArrayOf(1f, 1f, 1f, 1f)
+                    )
+                }
+                spriteBatch.end()
+                Profiler.drawCalls++
+            }
         }
 
         shader.unbind()
+    }
+
+    fun renderFramebuffer(
+        fbo: Framebuffer,
+        windowWidth: Int,
+        windowHeight: Int,
+        grayscale: Boolean = false,
+        vignetteStrength: Float = 0f
+    ) {
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f)
+        glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
+
+        postProcessShader.bind()
+        
+        glActiveTexture(GL_TEXTURE0)
+        glBindTexture(GL_TEXTURE_2D, fbo.textureId)
+        postProcessShader.setInt("uTexture", 0)
+        postProcessShader.setInt("uGrayscale", if (grayscale) 1 else 0)
+        postProcessShader.setFloat("uVignetteStrength", vignetteStrength)
+
+        screenQuad.bind()
+        screenQuad.draw()
+        screenQuad.unbind()
+
+        postProcessShader.unbind()
+        Profiler.drawCalls++
     }
 
     fun renderColliders(
@@ -162,8 +235,9 @@ class Renderer {
         debugGrid.destroy()
         debugLines.destroy()
         spriteBatch.destroy()
-        debugLines.destroy()
         debugShader.destroy()
+        screenQuad.destroy()
+        postProcessShader.destroy()
         mesh.destroy()
         shader.destroy()
     }

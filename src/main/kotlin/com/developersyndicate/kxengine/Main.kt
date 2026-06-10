@@ -18,6 +18,8 @@ import com.developersyndicate.kxengine.math.*
 import com.developersyndicate.kxengine.graphics.material.TextureMaterial
 import com.developersyndicate.kxengine.physics.*
 import com.developersyndicate.kxengine.scene.Scene
+import com.developersyndicate.kxengine.audio.Sound
+import com.developersyndicate.kxengine.audio.SoundSource
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL11.*
 
@@ -58,6 +60,13 @@ class DemoGame : Game {
     private lateinit var enemyCollider: Collider
     private lateinit var groundCollider: Collider
 
+    private lateinit var fbo: Framebuffer
+
+    private lateinit var jumpSound: Sound
+    private lateinit var jumpSource: SoundSource
+    private lateinit var hitSound: Sound
+    private lateinit var hitSource: SoundSource
+
     private lateinit var checkpointTrigger: Trigger
     private lateinit var damageTrigger: Trigger
     private lateinit var triggers: List<Trigger>
@@ -74,6 +83,8 @@ class DemoGame : Game {
 
     override fun init(engine: KXEngine) {
         this.engine = engine
+        
+        fbo = Framebuffer(engine.width, engine.height)
 
         camera = Camera(2f, 2f)
         camera.followSpeed = 4f
@@ -124,7 +135,8 @@ class DemoGame : Game {
                 position = Vec3(-6f, 0f, 0f)
                 scale = Vec3(0.5f, 0.5f, 1f)
             },
-            playerMaterial
+            playerMaterial,
+            zIndex = 3
         )
 
         enemy = Renderable(
@@ -133,7 +145,8 @@ class DemoGame : Game {
                 position = Vec3(6f, 0f, 0f)
                 scale = Vec3(0.5f, 0.5f, 1f)
             },
-            enemyMaterial
+            enemyMaterial,
+            zIndex = 2
         )
 
         ground = Renderable(
@@ -142,7 +155,8 @@ class DemoGame : Game {
                 position = Vec3(0f, -2f, 0f)
                 scale = Vec3(30f, 0.5f, 1f)
             },
-            enemyMaterial
+            enemyMaterial,
+            zIndex = 0
         )
 
         checkpointRenderable = Renderable(
@@ -151,7 +165,8 @@ class DemoGame : Game {
                 position = Vec3(-2f, -1.5f, 0f)
                 scale = Vec3(0.4f, 0.4f, 1f)
             },
-            enemyMaterial
+            enemyMaterial,
+            zIndex = 1
         )
 
         val playerEntity = world.createEntity()
@@ -162,9 +177,9 @@ class DemoGame : Game {
         sprites.addAll(listOf(ground, player, enemy, checkpointRenderable))
         camera.target = player.transform
 
-        playerCollider = Collider(player.transform, Vec2(0.25f, 0.25f))
-        enemyCollider = Collider(enemy.transform, Vec2(0.25f, 0.25f))
-        groundCollider = Collider(ground.transform, Vec2(15f, 0.25f))
+        playerCollider = Collider(player.transform, Vec2(0.25f, 0.25f), collisionLayer = 1, collisionMask = -1)
+        enemyCollider = Collider(enemy.transform, Vec2(0.25f, 0.25f), collisionLayer = 2, collisionMask = 5) // collides with Player (1) and Ground (4)
+        groundCollider = Collider(ground.transform, Vec2(15f, 0.25f), collisionLayer = 4, collisionMask = -1)
 
         playerHealth = Health(5)
         enemyHealth = Health(3)
@@ -189,6 +204,7 @@ class DemoGame : Game {
                 )
                 println("Player! HP = ${playerHealth.current}")
                 playerBody.hitStun = 0.3f
+                hitSource.play(hitSound)
             }
         }
 
@@ -198,6 +214,11 @@ class DemoGame : Game {
         enemyAI = EnemyAI(enemy.transform, enemyBody, patrolPoints)
 
         enemyDeath = EnemyDeath(enemyAnimator, enemyDeathAnimation, enemyBody)
+
+        jumpSound = Sound("assets/jump.wav")
+        jumpSource = SoundSource()
+        hitSound = Sound("assets/hit.wav")
+        hitSource = SoundSource()
     }
 
     override fun update(fixedDelta: Float) {
@@ -212,6 +233,7 @@ class DemoGame : Game {
         if (Input.isKeyPressed(GLFW_KEY_SPACE) && playerBody.grounded) {
             playerBody.velocity = playerBody.velocity.copy(y = jumpForce)
             playerBody.grounded = false
+            jumpSource.play(jumpSound)
         }
 
         playerBody.velocity = playerBody.velocity.copy(y = playerBody.velocity.y + gravity * fixedDelta)
@@ -227,36 +249,12 @@ class DemoGame : Game {
 
         enemyBody.velocity = enemyBody.velocity.copy(y = enemyBody.velocity.y + gravity * fixedDelta)
 
-        val pOld = player.transform.position
-        player.transform.position = pOld.copy(x = pOld.x + playerBody.velocity.x * fixedDelta)
-        if (physics.resolve(playerCollider, listOf(groundCollider))) {
-            player.transform.position = pOld
-            playerBody.velocity = playerBody.velocity.copy(x = 0f)
-        }
+        val playerRes = physics.resolveSliding(playerCollider, playerBody.velocity, listOf(groundCollider), fixedDelta)
+        playerBody.velocity = playerRes.velocity
+        playerBody.grounded = playerRes.grounded
 
-        val pAfterX = player.transform.position
-        player.transform.position = pAfterX.copy(y = pAfterX.y + playerBody.velocity.y * fixedDelta)
-        if (physics.resolve(playerCollider, listOf(groundCollider))) {
-            player.transform.position = pAfterX
-            playerBody.velocity = playerBody.velocity.copy(y = 0f)
-            playerBody.grounded = true
-        } else {
-            playerBody.grounded = false
-        }
-
-        val eOld = enemy.transform.position
-        enemy.transform.position = eOld.copy(x = eOld.x + enemyBody.velocity.x * fixedDelta)
-        if (physics.resolve(enemyCollider, listOf(groundCollider))) {
-            enemy.transform.position = eOld
-            enemyBody.velocity = enemyBody.velocity.copy(x = 0f)
-        }
-
-        val eAfterX = enemy.transform.position
-        enemy.transform.position = eAfterX.copy(y = eAfterX.y + enemyBody.velocity.y * fixedDelta)
-        if (physics.resolve(enemyCollider, listOf(groundCollider))) {
-            enemy.transform.position = eAfterX
-            enemyBody.velocity = enemyBody.velocity.copy(y = 0f)
-        }
+        val enemyRes = physics.resolveSliding(enemyCollider, enemyBody.velocity, listOf(groundCollider), fixedDelta)
+        enemyBody.velocity = enemyRes.velocity
 
         if (Input.isKeyDown(GLFW_KEY_A)) facingDir = -1f
         if (Input.isKeyDown(GLFW_KEY_D)) facingDir = 1f
@@ -292,6 +290,7 @@ class DemoGame : Game {
 
                 enemyBody.velocity += attack.knockback.force
                 println("Enemy HP: ${enemyHealth.current}")
+                hitSource.play(hitSound)
                 if (!enemyHealth.isAlive) {
                     enemyDeath.trigger()
                 }
@@ -320,14 +319,32 @@ class DemoGame : Game {
     }
 
     override fun render(delta: Float) {
+        fbo.bind()
+
         glClearColor(0.05f, 0.05f, 0.1f, 1f)
         glClear(GL_COLOR_BUFFER_BIT)
 
         engine.renderer.renderSprites(sprites, camera)
         engine.renderer.render(Scene(), camera, true)
+
+        fbo.unbind(engine.width, engine.height)
+
+        // Draw offscreen FBO texture to the screen with a vignette shader effect
+        engine.renderer.renderFramebuffer(
+            fbo = fbo,
+            windowWidth = engine.width,
+            windowHeight = engine.height,
+            grayscale = false,
+            vignetteStrength = 1.0f
+        )
     }
 
     override fun dispose() {
+        jumpSound.destroy()
+        jumpSource.destroy()
+        hitSound.destroy()
+        hitSource.destroy()
+        fbo.destroy()
         quad.destroy()
         Assets.disposeAll()
         engine.renderer.destroy(TriangleMesh())
@@ -335,7 +352,13 @@ class DemoGame : Game {
 }
 
 fun main() {
+    EngineConfig.load()
     val game = DemoGame()
-    val engine = KXEngine(game)
+    val engine = KXEngine(
+        game = game,
+        width = EngineConfig.windowWidth,
+        height = EngineConfig.windowHeight,
+        title = EngineConfig.windowTitle
+    )
     engine.start()
 }
