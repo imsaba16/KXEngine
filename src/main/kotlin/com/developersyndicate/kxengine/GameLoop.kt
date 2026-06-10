@@ -1,13 +1,20 @@
 package com.developersyndicate.kxengine
 
-class GameLoop(private val time: Time) {
+class GameLoop(private val time: Time, val fixedDelta: Float = 1f / 60f) {
     var running = false
 
-    fun run(update: (Float) -> Unit) {
+    fun run(updateFixed: (Float) -> Unit, updateVariable: (Float) -> Unit) {
         running = true
+        var accumulator = 0f
         while (running) {
             time.update()
-            update(time.deltaTime)
+            val dt = time.deltaTime.coerceAtMost(0.25f)
+            accumulator += dt
+            while (accumulator >= fixedDelta) {
+                updateFixed(fixedDelta)
+                accumulator -= fixedDelta
+            }
+            updateVariable(dt)
         }
     }
 

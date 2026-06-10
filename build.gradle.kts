@@ -1,5 +1,11 @@
 plugins {
     kotlin("jvm") version "2.2.20"
+    application
+}
+
+application {
+    mainClass.set("com.developersyndicate.kxengine.MainKt")
+    applicationDefaultJvmArgs = listOf("-XstartOnFirstThread")
 }
 
 group = "com.developersyndicate.kxengine"

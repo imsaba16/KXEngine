@@ -21,172 +21,190 @@ import com.developersyndicate.kxengine.scene.Scene
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL11.*
 
-fun main() {
-    val window = GlfwWindow(800, 600, "KXEngine")
-    val time = Time()
-    val loop = GameLoop(time)
-    val renderer = Renderer()
+class DemoGame : Game {
+    private lateinit var engine: KXEngine
+    private lateinit var camera: Camera
+    private lateinit var quad: QuadMesh
+    private val sprites = mutableListOf<Renderable>()
 
-    val camera = Camera(2f, 2f)
-    val quad = QuadMesh()
-    val sprites = mutableListOf<Renderable>()
+    private val physics = Physics()
+    private val triggerSystem = TriggerSystem()
+    private val playerAnimator = Animator()
+    private val enemyAnimator = Animator()
 
-    val physics = Physics()
-    val triggerSystem = TriggerSystem()
-    val animator = Animator()
+    private val gravity = -9.8f
+    private val moveSpeed = 5f
+    private val jumpForce = 5.5f
 
-    val gravity = -9.8f
-    val moveSpeed = 5f
-    val jumpForce = 5.5f
+    private val playerBody = Body()
+    private val enemyBody = Body()
 
-    val playerBody = Body()
-    val enemyBody = Body()
+    private lateinit var playerHealth: Health
+    private lateinit var enemyHealth: Health
+    private val damageSystem = DamageSystem()
+    private lateinit var checkpointSystem: CheckpointSystem
+    private val attackSystem = AttackSystem()
+    private val world = World()
+    private val physicsSystem = PhysicsSystem(gravity = -9.8f)
 
-    val playerHealth = Health(5)
-    val enemyHealth = Health(3)
-    val damageSystem = DamageSystem()
-    val checkpointSystem = CheckpointSystem()
-    val attackSystem = AttackSystem()
-    val world = World()
-    val physicsSystem = PhysicsSystem(gravity = -9.8f)
+    private var facingDir = 1f
 
-    camera.followSpeed = 4f
-    camera.deadZoneWidth = 0.8f
-    camera.deadZoneHeight = 0.5f
-    var facingDir = 1f
+    private lateinit var player: Renderable
+    private lateinit var enemy: Renderable
+    private lateinit var ground: Renderable
+    private lateinit var checkpointRenderable: Renderable
 
-    val atlasAsset = Assets.atlas(
-        path = "assets/atlas.png",
-        width = 192f,
-        height = 128f,
-        columns = 12,
-        rows = 8
-    )
+    private lateinit var playerCollider: Collider
+    private lateinit var enemyCollider: Collider
+    private lateinit var groundCollider: Collider
 
-    val atlas = atlasAsset.atlas
-    val atlasTexture = atlasAsset.textureAsset.texture
+    private lateinit var checkpointTrigger: Trigger
+    private lateinit var damageTrigger: Trigger
+    private lateinit var triggers: List<Trigger>
 
-    val playerMaterial = TextureMaterial(atlasTexture, atlas.region("char_2_5"))
-    val enemyMaterial = TextureMaterial(atlasTexture, atlas.region("char_5_6"))
+    private lateinit var enemyAI: EnemyAI
+    private lateinit var enemyDeath: EnemyDeath
 
-    val idleAnimation = SpriteAnimation(listOf(atlas.region("char_2_0")), 1f, true)
-    val walkAnimation = SpriteAnimation(
-        listOf(
-            atlas.region("char_2_0"),
-            atlas.region("char_2_1"),
-            atlas.region("char_2_2")
-        ),
-        0.15f,
-        true
-    )
-    val enemyDeathAnimation = SpriteAnimation(
-        listOf(
-            atlas.region("char_5_0"),
-            atlas.region("char_5_1"),
-            atlas.region("char_5_2")
-        ),
-        0.12f,
-        false
-    )
+    private lateinit var idleAnimation: SpriteAnimation
+    private lateinit var walkAnimation: SpriteAnimation
+    private lateinit var enemyDeathAnimation: SpriteAnimation
 
-    animator.play(idleAnimation)
+    private lateinit var playerMaterial: TextureMaterial
+    private lateinit var enemyMaterial: TextureMaterial
 
-    val player = Renderable(
-        quad,
-        Transform().apply {
-            position = Vec3(-6f, 0f, 0f)
-            scale = Vec3(0.5f, 0.5f, 1f)
-        },
-        playerMaterial
-    )
+    override fun init(engine: KXEngine) {
+        this.engine = engine
 
-    val enemy = Renderable(
-        quad,
-        Transform().apply {
-            position = Vec3(6f, 0f, 0f)
-            scale = Vec3(0.5f, 0.5f, 1f)
-        },
-        enemyMaterial
-    )
+        camera = Camera(2f, 2f)
+        camera.followSpeed = 4f
+        camera.deadZoneWidth = 0.8f
+        camera.deadZoneHeight = 0.5f
 
-    val ground = Renderable(
-        quad,
-        Transform().apply {
-            position = Vec3(0f, -2f, 0f)
-            scale = Vec3(30f, 0.5f, 1f)
-        },
-        enemyMaterial
-    )
+        quad = QuadMesh()
 
-    val checkpointRenderable = Renderable(
-        quad,
-        Transform().apply {
-            position = Vec3(-2f, -1.5f, 0f)
-            scale = Vec3(0.4f, 0.4f, 1f)
-        },
-        enemyMaterial
-    )
+        val atlasAsset = Assets.atlas(
+            path = "assets/atlas.png",
+            width = 192f,
+            height = 128f,
+            columns = 12,
+            rows = 8
+        )
 
-    val playerEntity = world.createEntity()
+        val atlas = atlasAsset.atlas
+        val atlasTexture = atlasAsset.textureAsset.texture
 
-    world.add(
-        playerEntity,
-        TransformC(Vec3(-6f, 0f, 0f))
-    )
+        playerMaterial = TextureMaterial(atlasTexture, atlas.region("char_2_5"))
+        enemyMaterial = TextureMaterial(atlasTexture, atlas.region("char_5_6"))
 
-    world.add(
-        playerEntity,
-        BodyC()
-    )
+        idleAnimation = SpriteAnimation(listOf(atlas.region("char_2_0")), 1f, true)
+        walkAnimation = SpriteAnimation(
+            listOf(
+                atlas.region("char_2_0"),
+                atlas.region("char_2_1"),
+                atlas.region("char_2_2")
+            ),
+            0.15f,
+            true
+        )
+        enemyDeathAnimation = SpriteAnimation(
+            listOf(
+                atlas.region("char_5_0"),
+                atlas.region("char_5_1"),
+                atlas.region("char_5_2")
+            ),
+            0.12f,
+            false
+        )
 
-    world.add(
-        playerEntity,
-        HealthC(max = 5)
-    )
+        playerAnimator.play(idleAnimation)
 
-    sprites.addAll(listOf(ground, player, enemy, checkpointRenderable))
-    camera.target = player.transform
+        player = Renderable(
+            quad,
+            Transform().apply {
+                position = Vec3(-6f, 0f, 0f)
+                scale = Vec3(0.5f, 0.5f, 1f)
+            },
+            playerMaterial
+        )
 
-    val playerCollider = Collider(player.transform, Vec2(0.25f, 0.25f))
-    val enemyCollider = Collider(enemy.transform, Vec2(0.25f, 0.25f))
-    val groundCollider = Collider(ground.transform, Vec2(15f, 0.25f))
+        enemy = Renderable(
+            quad,
+            Transform().apply {
+                position = Vec3(6f, 0f, 0f)
+                scale = Vec3(0.5f, 0.5f, 1f)
+            },
+            enemyMaterial
+        )
 
-    val checkpointTrigger = Trigger(
-        Collider(checkpointRenderable.transform, Vec2(0.2f, 0.2f))
-    ) {
-        checkpointSystem.setCheckpoint(Checkpoint(checkpointRenderable.transform.position))
-    }
+        ground = Renderable(
+            quad,
+            Transform().apply {
+                position = Vec3(0f, -2f, 0f)
+                scale = Vec3(30f, 0.5f, 1f)
+            },
+            enemyMaterial
+        )
 
-    val damageTrigger = Trigger(
-        Collider(enemy.transform, Vec2(0.5f, 0.5f))
-    ) {
-        if (playerBody.hitStun <= 0f) {
-            val dir = if (player.transform.position.x < enemy.transform.position.x) -1f else 1f
-            damageSystem.apply(
-                playerHealth,
-                playerBody,
-                Damage(1),
-                Knockback(Vec2(dir * 4.5f, 2.5f))
-            )
-            println("Player! HP = ${playerHealth.current}")
-            playerBody.hitStun = 0.3f
+        checkpointRenderable = Renderable(
+            quad,
+            Transform().apply {
+                position = Vec3(-2f, -1.5f, 0f)
+                scale = Vec3(0.4f, 0.4f, 1f)
+            },
+            enemyMaterial
+        )
+
+        val playerEntity = world.createEntity()
+        world.add(playerEntity, TransformC(Vec3(-6f, 0f, 0f)))
+        world.add(playerEntity, BodyC())
+        world.add(playerEntity, HealthC(max = 5))
+
+        sprites.addAll(listOf(ground, player, enemy, checkpointRenderable))
+        camera.target = player.transform
+
+        playerCollider = Collider(player.transform, Vec2(0.25f, 0.25f))
+        enemyCollider = Collider(enemy.transform, Vec2(0.25f, 0.25f))
+        groundCollider = Collider(ground.transform, Vec2(15f, 0.25f))
+
+        playerHealth = Health(5)
+        enemyHealth = Health(3)
+        checkpointSystem = CheckpointSystem(defaultSpawn = player.transform.position.copy())
+
+        checkpointTrigger = Trigger(
+            Collider(checkpointRenderable.transform, Vec2(0.2f, 0.2f))
+        ) {
+            checkpointSystem.setCheckpoint(Checkpoint(checkpointRenderable.transform.position))
         }
+
+        damageTrigger = Trigger(
+            Collider(enemy.transform, Vec2(0.5f, 0.5f))
+        ) {
+            if (playerBody.hitStun <= 0f) {
+                val dir = if (player.transform.position.x < enemy.transform.position.x) -1f else 1f
+                damageSystem.apply(
+                    playerHealth,
+                    playerBody,
+                    Damage(1),
+                    Knockback(Vec2(dir * 4.5f, 2.5f))
+                )
+                println("Player! HP = ${playerHealth.current}")
+                playerBody.hitStun = 0.3f
+            }
+        }
+
+        triggers = listOf(checkpointTrigger, damageTrigger)
+
+        val patrolPoints = listOf(Vec3(4f, 0f, 0f), Vec3(8f, 0f, 0f))
+        enemyAI = EnemyAI(enemy.transform, enemyBody, patrolPoints)
+
+        enemyDeath = EnemyDeath(enemyAnimator, enemyDeathAnimation, enemyBody)
     }
 
-    val triggers = listOf(checkpointTrigger, damageTrigger)
-
-    val patrolPoints = listOf(Vec3(4f, 0f, 0f), Vec3(8f, 0f, 0f))
-    val enemyAI = EnemyAI(enemy.transform, enemyBody, patrolPoints)
-
-    val enemyDeath = EnemyDeath(animator, enemyDeathAnimation, enemyBody)
-
-    loop.run { delta ->
-        window.pollEvents()
-        if (window.shouldClose()) loop.stop()
-        physicsSystem.update(world, delta)
+    override fun update(fixedDelta: Float) {
+        physicsSystem.update(world, fixedDelta)
 
         playerBody.velocity = playerBody.velocity.copy(x = 0f)
-        if (playerBody.hitStun > 0f) playerBody.hitStun -= delta
+        if (playerBody.hitStun > 0f) playerBody.hitStun -= fixedDelta
 
         if (Input.isKeyDown(GLFW_KEY_A)) playerBody.velocity = playerBody.velocity.copy(x = -moveSpeed)
         if (Input.isKeyDown(GLFW_KEY_D)) playerBody.velocity = playerBody.velocity.copy(x = moveSpeed)
@@ -196,28 +214,28 @@ fun main() {
             playerBody.grounded = false
         }
 
-        playerBody.velocity = playerBody.velocity.copy(y = playerBody.velocity.y + gravity * delta)
+        playerBody.velocity = playerBody.velocity.copy(y = playerBody.velocity.y + gravity * fixedDelta)
 
         if (enemyDeath.state == DeathState.ALIVE) {
-            enemyAI.update(delta, player.transform.position)
+            enemyAI.update(fixedDelta, player.transform.position)
         } else {
             enemyBody.velocity = enemyBody.velocity.copy(x = 0f)
         }
 
-        enemyDeath.update(delta)
+        enemyDeath.update(fixedDelta)
         if (enemyDeath.isDead()) sprites.remove(enemy)
 
-        enemyBody.velocity = enemyBody.velocity.copy(y = enemyBody.velocity.y + gravity * delta)
+        enemyBody.velocity = enemyBody.velocity.copy(y = enemyBody.velocity.y + gravity * fixedDelta)
 
         val pOld = player.transform.position
-        player.transform.position = pOld.copy(x = pOld.x + playerBody.velocity.x * delta)
+        player.transform.position = pOld.copy(x = pOld.x + playerBody.velocity.x * fixedDelta)
         if (physics.resolve(playerCollider, listOf(groundCollider))) {
             player.transform.position = pOld
             playerBody.velocity = playerBody.velocity.copy(x = 0f)
         }
 
         val pAfterX = player.transform.position
-        player.transform.position = pAfterX.copy(y = pAfterX.y + playerBody.velocity.y * delta)
+        player.transform.position = pAfterX.copy(y = pAfterX.y + playerBody.velocity.y * fixedDelta)
         if (physics.resolve(playerCollider, listOf(groundCollider))) {
             player.transform.position = pAfterX
             playerBody.velocity = playerBody.velocity.copy(y = 0f)
@@ -227,14 +245,14 @@ fun main() {
         }
 
         val eOld = enemy.transform.position
-        enemy.transform.position = eOld.copy(x = eOld.x + enemyBody.velocity.x * delta)
+        enemy.transform.position = eOld.copy(x = eOld.x + enemyBody.velocity.x * fixedDelta)
         if (physics.resolve(enemyCollider, listOf(groundCollider))) {
             enemy.transform.position = eOld
             enemyBody.velocity = enemyBody.velocity.copy(x = 0f)
         }
 
         val eAfterX = enemy.transform.position
-        enemy.transform.position = eAfterX.copy(y = eAfterX.y + enemyBody.velocity.y * delta)
+        enemy.transform.position = eAfterX.copy(y = eAfterX.y + enemyBody.velocity.y * fixedDelta)
         if (physics.resolve(enemyCollider, listOf(groundCollider))) {
             enemy.transform.position = eAfterX
             enemyBody.velocity = enemyBody.velocity.copy(y = 0f)
@@ -267,7 +285,7 @@ fun main() {
                 )
             )
         }
-        attackSystem.update(delta)
+        attackSystem.update(fixedDelta)
         if (enemyDeath.state == DeathState.ALIVE) {
             attackSystem.checkHits(enemyCollider) { attack ->
                 enemyHealth.damage(attack.damage)
@@ -282,31 +300,42 @@ fun main() {
 
         triggerSystem.update(playerCollider, triggers)
 
-        playerHealth.update(delta)
-        animator.play(if (playerBody.velocity.x != 0f) walkAnimation else idleAnimation)
-        animator.update(delta)
-        playerMaterial.region = animator.currentFrame()
+        playerHealth.update(fixedDelta)
+        playerAnimator.play(if (playerBody.velocity.x != 0f) walkAnimation else idleAnimation)
+        playerAnimator.update(fixedDelta)
+        playerMaterial.region = playerAnimator.currentFrame()
 
-        camera.update(delta)
+        if (enemyDeath.state == DeathState.DYING) {
+            enemyAnimator.update(fixedDelta)
+            enemyMaterial.region = enemyAnimator.currentFrame()
+        }
 
-        glClearColor(0.05f, 0.05f, 0.1f, 1f)
-        glClear(GL_COLOR_BUFFER_BIT)
-
-        renderer.renderSprites(sprites, camera)
-        renderer.render(Scene(), camera, true)
+        camera.update(fixedDelta)
 
         if (!playerHealth.isAlive) {
             checkpointSystem.respawn(player.transform, playerBody, playerHealth)
             enemyHealth.current = enemyHealth.max
             if (!sprites.contains(enemy)) sprites.add(enemy)
         }
-
-        Input.endFrame()
-        window.swapBuffers()
     }
 
-    quad.destroy()
-    Assets.disposeAll()
-    renderer.destroy(TriangleMesh())
-    window.destroy()
+    override fun render(delta: Float) {
+        glClearColor(0.05f, 0.05f, 0.1f, 1f)
+        glClear(GL_COLOR_BUFFER_BIT)
+
+        engine.renderer.renderSprites(sprites, camera)
+        engine.renderer.render(Scene(), camera, true)
+    }
+
+    override fun dispose() {
+        quad.destroy()
+        Assets.disposeAll()
+        engine.renderer.destroy(TriangleMesh())
+    }
+}
+
+fun main() {
+    val game = DemoGame()
+    val engine = KXEngine(game)
+    engine.start()
 }

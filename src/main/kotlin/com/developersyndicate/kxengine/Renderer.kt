@@ -28,12 +28,13 @@ class Renderer {
             layout (location = 2) in vec4 aColor;
 
             uniform mat4 uVP;   // View * Projection
+            uniform vec4 uUVOffsetScale;
 
             out vec2 vUV;
             out vec4 vColor;
 
             void main() {
-                vUV = aUV;
+                vUV = aUV * uUVOffsetScale.zw + uUVOffsetScale.xy;
                 vColor = aColor;
                 gl_Position = uVP * vec4(aPos, 0.0, 1.0);
             }
@@ -58,6 +59,7 @@ class Renderer {
         shader.bind()
 
         shader.setMat4("uVP", camera.matrix().toFloatArray())
+        shader.setVec4("uUVOffsetScale", Color(0f, 0f, 1f, 1f))
 
         if (debug) {
             shader.setVec4("uColor", Color(0.3f, 0.3f, 0.3f, 1f))
@@ -80,6 +82,13 @@ class Renderer {
             shader.setMat4("uVP", camera.matrix().toFloatArray())
             obj.material.bind(shader)
 
+            if (obj.material is TextureMaterial) {
+                val reg = obj.material.region
+                shader.setVec4("uUVOffsetScale", Color(reg.u0, reg.v0, reg.u1 - reg.u0, reg.v1 - reg.v0))
+            } else {
+                shader.setVec4("uUVOffsetScale", Color(0f, 0f, 1f, 1f))
+            }
+
             obj.mesh.bind()
             obj.mesh.draw()
             obj.mesh.unbind()
@@ -96,6 +105,7 @@ class Renderer {
 
         shader.bind()
         shader.setMat4("uVP", camera.matrix().toFloatArray())
+        shader.setVec4("uUVOffsetScale", Color(0f, 0f, 1f, 1f))
 
         val batches = sprites.groupBy {
             val material = it.material as TextureMaterial
