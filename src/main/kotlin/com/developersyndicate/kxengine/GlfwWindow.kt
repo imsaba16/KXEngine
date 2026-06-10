@@ -2,6 +2,7 @@ package com.developersyndicate.kxengine
 
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL
+import org.lwjgl.opengl.GL11.*
 import com.developersyndicate.kxengine.input.Input
 import org.lwjgl.glfw.GLFWKeyCallbackI
 
@@ -26,6 +27,8 @@ class GlfwWindow(width: Int, height: Int, title: String) : Window {
         }
         glfwMakeContextCurrent(handle)
         GL.createCapabilities()
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glfwSwapInterval(1)
     }
     override fun pollEvents() {

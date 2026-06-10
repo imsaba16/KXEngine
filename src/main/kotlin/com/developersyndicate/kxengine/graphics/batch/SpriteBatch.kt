@@ -103,6 +103,59 @@ class SpriteBatch(
         spriteCount++
     }
 
+    fun draw(
+        x: Float,
+        y: Float,
+        rotation: Float,
+        scaleX: Float,
+        scaleY: Float,
+        region: AtlasRegion,
+        color: FloatArray
+    ) {
+        val positions = arrayOf(
+            -0.5f to  0.5f,
+            -0.5f to -0.5f,
+            0.5f to -0.5f,
+            -0.5f to  0.5f,
+            0.5f to -0.5f,
+            0.5f to  0.5f
+        )
+
+        val uvs = arrayOf(
+            region.u0 to region.v1,
+            region.u0 to region.v0,
+            region.u1 to region.v0,
+            region.u0 to region.v1,
+            region.u1 to region.v0,
+            region.u1 to region.v1
+        )
+
+        val cos = if (rotation != 0f) Math.cos(rotation.toDouble()).toFloat() else 1f
+        val sin = if (rotation != 0f) Math.sin(rotation.toDouble()).toFloat() else 0f
+
+        for (i in 0 until 6) {
+            val (vx, vy) = positions[i]
+            val (u, v) = uvs[i]
+
+            val sx = vx * scaleX
+            val sy = vy * scaleY
+
+            val px = sx * cos - sy * sin + x
+            val py = sx * sin + sy * cos + y
+
+            buffer.put(px)
+            buffer.put(py)
+            buffer.put(u)
+            buffer.put(v)
+            buffer.put(color[0])
+            buffer.put(color[1])
+            buffer.put(color[2])
+            buffer.put(color[3])
+        }
+
+        spriteCount++
+    }
+
 
     fun end() {
         buffer.flip()

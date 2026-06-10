@@ -81,6 +81,9 @@ class DemoGame : Game {
     private lateinit var playerMaterial: TextureMaterial
     private lateinit var enemyMaterial: TextureMaterial
     private lateinit var lantern: PointLight2D
+    private val particleSystem = ParticleSystem()
+    private lateinit var checkpointParticles: ParticleEmitter
+    private lateinit var hitParticles: ParticleEmitter
 
     override fun init(engine: KXEngine) {
         this.engine = engine
@@ -215,6 +218,8 @@ class DemoGame : Game {
                 println("Player! HP = ${playerHealth.current}")
                 playerBody.hitStun = 0.3f
                 hitSource.play(hitSound)
+                hitParticles.position = Vec2(player.transform.position.x, player.transform.position.y)
+                hitParticles.burst(15)
             }
         }
 
@@ -229,6 +234,19 @@ class DemoGame : Game {
         jumpSource = SoundSource()
         hitSound = Sound("assets/hit.wav")
         hitSource = SoundSource()
+
+        checkpointParticles = ParticleEmitter.createFire(
+            position = Vec2(checkpointRenderable.transform.position.x, checkpointRenderable.transform.position.y),
+            texture = atlasTexture,
+            region = atlas.region("char_5_0")
+        )
+        hitParticles = ParticleEmitter.createExplosion(
+            position = Vec2(0f, 0f),
+            texture = atlasTexture,
+            region = atlas.region("char_2_0")
+        )
+        particleSystem.add(checkpointParticles)
+        particleSystem.add(hitParticles)
     }
 
     override fun update(fixedDelta: Float) {
@@ -301,6 +319,8 @@ class DemoGame : Game {
                 enemyBody.velocity += attack.knockback.force
                 println("Enemy HP: ${enemyHealth.current}")
                 hitSource.play(hitSound)
+                hitParticles.position = Vec2(enemy.transform.position.x, enemy.transform.position.y)
+                hitParticles.burst(30)
                 if (!enemyHealth.isAlive) {
                     enemyDeath.trigger()
                 }
@@ -321,6 +341,7 @@ class DemoGame : Game {
 
         camera.update(fixedDelta)
         lantern.position = Vec2(player.transform.position.x, player.transform.position.y)
+        particleSystem.update(fixedDelta)
 
         if (!playerHealth.isAlive) {
             checkpointSystem.respawn(player.transform, playerBody, playerHealth)
@@ -336,6 +357,7 @@ class DemoGame : Game {
         glClear(GL_COLOR_BUFFER_BIT)
 
         engine.renderer.renderSprites(sprites, camera)
+        engine.renderer.renderParticles(particleSystem, camera)
         engine.renderer.render(Scene(), camera, true)
 
         fbo.unbind(engine.width, engine.height)

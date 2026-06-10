@@ -264,6 +264,22 @@ class Renderer {
         shader.unbind()
     }
 
+    fun renderParticles(
+        particleSystem: ParticleSystem,
+        camera: Camera
+    ) {
+        shader.bind()
+        shader.setMat4("uVP", camera.matrix().toFloatArray())
+        shader.setVec4("uUVOffsetScale", Color(0f, 0f, 1f, 1f))
+        shader.setInt("uUseTexture", 1)
+        shader.setVec4("uColor", Color.WHITE)
+        applyLightingUniforms()
+
+        particleSystem.draw(spriteBatch)
+
+        shader.unbind()
+    }
+
     fun renderFramebuffer(
         fbo: Framebuffer,
         windowWidth: Int,
