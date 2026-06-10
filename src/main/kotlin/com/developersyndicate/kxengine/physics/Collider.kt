@@ -10,10 +10,13 @@ class Collider(
     var collisionMask: Int = -1 // 0xFFFFFFFF
 ) {
     fun aabb(): AABB {
-        val p = transform.position
+        val p = transform.worldPosition
+        val s = transform.worldScale
+        val hx = halfSize.x * s.x
+        val hy = halfSize.y * s.y
         return AABB(
-            min = Vec2(p.x - halfSize.x, p.y - halfSize.y),
-            max = Vec2(p.x + halfSize.x, p.y + halfSize.y)
+            min = Vec2(p.x - hx, p.y - hy),
+            max = Vec2(p.x + hx, p.y + hy)
         )
     }
 

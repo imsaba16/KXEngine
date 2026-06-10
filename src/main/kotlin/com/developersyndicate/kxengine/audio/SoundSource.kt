@@ -34,6 +34,11 @@ class SoundSource(val loop: Boolean = false) {
         alSourcePause(sourceId)
     }
 
+    fun setPosition(x: Float, y: Float, z: Float) {
+        if (!SoundEngine.isEnabled() || sourceId == 0) return
+        alSource3f(sourceId, AL_POSITION, x, y, z)
+    }
+
     fun setVolume(volume: Float) {
         if (!SoundEngine.isEnabled() || sourceId == 0) return
         alSourcef(sourceId, AL_GAIN, volume.coerceIn(0f, 1f))

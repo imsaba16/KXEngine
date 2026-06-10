@@ -16,7 +16,7 @@ import com.developersyndicate.kxengine.input.Input
 import com.developersyndicate.kxengine.math.*
 import com.developersyndicate.kxengine.graphics.material.TextureMaterial
 import com.developersyndicate.kxengine.physics.*
-import com.developersyndicate.kxengine.scene.Scene
+import com.developersyndicate.kxengine.scene.*
 import com.developersyndicate.kxengine.audio.Sound
 import com.developersyndicate.kxengine.audio.SoundSource
 import org.lwjgl.glfw.GLFW.*
@@ -26,7 +26,10 @@ class DemoGame : Game {
     private lateinit var engine: KXEngine
     private lateinit var camera: Camera
     private lateinit var quad: QuadMesh
-    private val sprites = mutableListOf<Renderable>()
+    private lateinit var scene: Scene
+    private lateinit var playerNode: SpriteNode
+    private lateinit var enemyNode: SpriteNode
+    private lateinit var swordNode: SpriteNode
 
     private val physics = Physics()
     private val triggerSystem = TriggerSystem()
@@ -158,52 +161,46 @@ class DemoGame : Game {
             addState(attackState)
         }
 
-        player = Renderable(
-            quad,
-            Transform().apply {
-                position = Vec3(-6f, 0f, 0f)
-                scale = Vec3(0.5f, 0.5f, 1f)
-            },
-            playerMaterial,
-            zIndex = 3
-        )
+        scene = Scene()
 
-        enemy = Renderable(
-            quad,
-            Transform().apply {
-                position = Vec3(6f, 0f, 0f)
-                scale = Vec3(0.5f, 0.5f, 1f)
-            },
-            enemyMaterial,
-            zIndex = 2
-        )
+        playerNode = SpriteNode("Player", quad, playerMaterial, zIndex = 3).apply {
+            transform.position = Vec3(-6f, 0f, 0f)
+            transform.scale = Vec3(0.5f, 0.5f, 1f)
+        }
+        scene.add(playerNode)
+        player = playerNode.renderable
 
-        ground = Renderable(
-            quad,
-            Transform().apply {
-                position = Vec3(0f, -2f, 0f)
-                scale = Vec3(30f, 0.5f, 1f)
-            },
-            enemyMaterial,
-            zIndex = 0
-        )
+        swordNode = SpriteNode("Sword", quad, enemyMaterial, zIndex = 4).apply {
+            transform.position = Vec3(0.6f, 0f, 0f)
+            transform.scale = Vec3(0.3f, 0.3f, 1f)
+        }
+        playerNode.addChild(swordNode)
 
-        checkpointRenderable = Renderable(
-            quad,
-            Transform().apply {
-                position = Vec3(-2f, -1.5f, 0f)
-                scale = Vec3(0.4f, 0.4f, 1f)
-            },
-            enemyMaterial,
-            zIndex = 1
-        )
+        enemyNode = SpriteNode("Enemy", quad, enemyMaterial, zIndex = 2).apply {
+            transform.position = Vec3(6f, 0f, 0f)
+            transform.scale = Vec3(0.5f, 0.5f, 1f)
+        }
+        scene.add(enemyNode)
+        enemy = enemyNode.renderable
+
+        val groundNode = SpriteNode("Ground", quad, enemyMaterial, zIndex = 0).apply {
+            transform.position = Vec3(0f, -2f, 0f)
+            transform.scale = Vec3(30f, 0.5f, 1f)
+        }
+        scene.add(groundNode)
+        ground = groundNode.renderable
+
+        val checkpointNode = SpriteNode("Checkpoint", quad, enemyMaterial, zIndex = 1).apply {
+            transform.position = Vec3(-2f, -1.5f, 0f)
+            transform.scale = Vec3(0.4f, 0.4f, 1f)
+        }
+        scene.add(checkpointNode)
+        checkpointRenderable = checkpointNode.renderable
 
         val playerEntity = world.createEntity()
         world.add(playerEntity, TransformC(Vec3(-6f, 0f, 0f)))
         world.add(playerEntity, BodyC())
         world.add(playerEntity, HealthC(max = 5))
-
-        sprites.addAll(listOf(ground, player, enemy, checkpointRenderable))
         camera.target = player.transform
 
         playerCollider = Collider(player.transform, Vec2(0.25f, 0.25f), collisionLayer = 1, collisionMask = -1)
@@ -289,7 +286,7 @@ class DemoGame : Game {
         }
 
         enemyDeath.update(fixedDelta)
-        if (enemyDeath.isDead()) sprites.remove(enemy)
+        if (enemyDeath.isDead()) scene.remove(enemyNode)
 
         enemyBody.velocity = enemyBody.velocity.copy(y = enemyBody.velocity.y + gravity * fixedDelta)
 
@@ -359,11 +356,14 @@ class DemoGame : Game {
         camera.update(fixedDelta)
         lantern.position = Vec2(player.transform.position.x, player.transform.position.y)
         particleSystem.update(fixedDelta)
+        
+        swordNode.transform.rotation += 2.0f * fixedDelta
+        scene.update(fixedDelta)
 
         if (!playerHealth.isAlive) {
             checkpointSystem.respawn(player.transform, playerBody, playerHealth)
             enemyHealth.current = enemyHealth.max
-            if (!sprites.contains(enemy)) sprites.add(enemy)
+            if (!scene.all().contains(enemy)) scene.add(enemyNode)
         }
     }
 
@@ -373,7 +373,7 @@ class DemoGame : Game {
         glClearColor(0.05f, 0.05f, 0.1f, 1f)
         glClear(GL_COLOR_BUFFER_BIT)
 
-        engine.renderer.renderSprites(sprites, camera)
+        engine.renderer.renderSprites(scene.all(), camera)
         engine.renderer.renderParticles(particleSystem, camera)
         engine.renderer.render(Scene(), camera, true)
 
