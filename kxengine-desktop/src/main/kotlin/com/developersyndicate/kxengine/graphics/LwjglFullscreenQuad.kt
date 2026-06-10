@@ -1,0 +1,67 @@
+package com.developersyndicate.kxengine.graphics
+
+import org.lwjgl.opengl.GL30.*
+import org.lwjgl.system.MemoryUtil
+
+class LwjglFullscreenQuad : Mesh {
+
+    private val vaoId: Int
+    private val vboId: Int
+
+    init {
+        // x, y, u, v
+        // Coordinates range from -1.0 to 1.0 to cover the entire viewport
+        val vertices = floatArrayOf(
+            -1.0f,  1.0f,  0f, 1f, // top-left
+            -1.0f, -1.0f,  0f, 0f, // bottom-left
+            1.0f, -1.0f,  1f, 0f, // bottom-right
+
+            -1.0f,  1.0f,  0f, 1f, // top-left
+            1.0f, -1.0f,  1f, 0f, // bottom-right
+            1.0f,  1.0f,  1f, 1f  // top-right
+        )
+
+        vaoId = glGenVertexArrays()
+        glBindVertexArray(vaoId)
+
+        vboId = glGenBuffers()
+        glBindBuffer(GL_ARRAY_BUFFER, vboId)
+
+        val buffer = MemoryUtil.memAllocFloat(vertices.size)
+        buffer.put(vertices).flip()
+
+        glBufferData(GL_ARRAY_BUFFER, buffer, GL_STATIC_DRAW)
+
+        val stride = 4 * Float.SIZE_BYTES
+
+        // position
+        glVertexAttribPointer(0, 2, GL_FLOAT, false, stride, 0)
+        glEnableVertexAttribArray(0)
+
+        // uv
+        glVertexAttribPointer(1, 2, GL_FLOAT, false, stride, 2L * Float.SIZE_BYTES)
+        glEnableVertexAttribArray(1)
+
+        MemoryUtil.memFree(buffer)
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0)
+        glBindVertexArray(0)
+    }
+
+    override fun bind() {
+        glBindVertexArray(vaoId)
+    }
+
+    override fun draw() {
+        glDrawArrays(GL_TRIANGLES, 0, 6)
+    }
+
+    override fun unbind() {
+        glBindVertexArray(0)
+    }
+
+    override fun destroy() {
+        glDeleteBuffers(vboId)
+        glDeleteVertexArrays(vaoId)
+    }
+}
