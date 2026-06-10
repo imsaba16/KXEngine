@@ -80,10 +80,20 @@ class DemoGame : Game {
 
     private lateinit var playerMaterial: TextureMaterial
     private lateinit var enemyMaterial: TextureMaterial
+    private lateinit var lantern: PointLight2D
 
     override fun init(engine: KXEngine) {
         this.engine = engine
         
+        lantern = PointLight2D(
+            position = Vec2(-6f, 0f),
+            color = Color(1.0f, 0.85f, 0.6f),
+            radius = 5.0f,
+            intensity = 1.0f
+        )
+        engine.renderer.pointLight = lantern
+        engine.renderer.ambientColor = Color(0.12f, 0.12f, 0.16f)
+
         fbo = Framebuffer(engine.width, engine.height)
 
         camera = Camera(2f, 2f)
@@ -310,6 +320,7 @@ class DemoGame : Game {
         }
 
         camera.update(fixedDelta)
+        lantern.position = Vec2(player.transform.position.x, player.transform.position.y)
 
         if (!playerHealth.isAlive) {
             checkpointSystem.respawn(player.transform, playerBody, playerHealth)

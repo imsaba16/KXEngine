@@ -111,6 +111,16 @@ open class Shader(
         GL20.glUniform4f(location, color.r, color.g, color.b, color.a)
     }
 
+    fun setVec3(name: String, x: Float, y: Float, z: Float) {
+        val location = GL20.glGetUniformLocation(programId, name)
+        GL20.glUniform3f(location, x, y, z)
+    }
+
+    fun setVec3(name: String, color: Color) {
+        val location = GL20.glGetUniformLocation(programId, name)
+        GL20.glUniform3f(location, color.r, color.g, color.b)
+    }
+
     fun setInt(name: String, value: Int) {
         val location = GL20.glGetUniformLocation(programId, name)
         GL20.glUniform1i(location, value)
